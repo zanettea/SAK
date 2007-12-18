@@ -1,0 +1,7 @@
+ <!DOCTYPE RCC><RCC version="1.0">
+ <qresource prefix="/">
+    <file alias="images/icon.png" >imagesvale/icon.png</file>
+    <file alias="images/splash.png">imagesvale/splash.png</file>
+    <file alias="images/whip.png">imagesvale/whip.png</file>
+ </qresource>
+ </RCC>

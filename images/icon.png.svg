@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://web.resource.org/cc/"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   id="svg2"
+   sodipodi:version="0.32"
+   inkscape:version="0.44.1"
+   width="500"
+   height="500"
+   version="1.0"
+   sodipodi:docbase="/tmp/sak/images"
+   sodipodi:docname="icon.png.svg"
+   inkscape:export-filename="/tmp/sak/images/icon.png"
+   inkscape:export-xdpi="23.040001"
+   inkscape:export-ydpi="23.040001">
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs5">
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient3951">
+      <stop
+         style="stop-color:#ffffff;stop-opacity:1;"
+         offset="0"
+         id="stop3953" />
+      <stop
+         style="stop-color:#ffffff;stop-opacity:0;"
+         offset="1"
+         id="stop3955" />
+    </linearGradient>
+    <linearGradient
+       id="linearGradient3558">
+      <stop
+         style="stop-color:#ffffff;stop-opacity:1;"
+         offset="0"
+         id="stop3560" />
+      <stop
+         style="stop-color:#9f81dd;stop-opacity:1;"
+         offset="1"
+         id="stop3562" />
+    </linearGradient>
+    <radialGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3558"
+       id="radialGradient3947"
+       cx="-108.49786"
+       cy="335.38254"
+       fx="-108.49786"
+       fy="335.38254"
+       r="210.84247"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(-1,-1.6719116e-7,2.2752641e-7,-1.2410466,-216.9958,751.60792)" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3951"
+       id="linearGradient3957"
+       x1="-91.661987"
+       y1="161.41183"
+       x2="362.90665"
+       y2="161.41183"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(1.0864198,0,0,0.5,-92.302752,279.28137)" />
+  </defs>
+  <sodipodi:namedview
+     inkscape:window-height="766"
+     inkscape:window-width="1215"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     guidetolerance="10.0"
+     gridtolerance="10.0"
+     objecttolerance="10.0"
+     borderopacity="1.0"
+     bordercolor="#666666"
+     pagecolor="#ffffff"
+     id="base"
+     inkscape:zoom="0.53457273"
+     inkscape:cx="642.79337"
+     inkscape:cy="177.77363"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:current-layer="svg2" />
+  <path
+     sodipodi:type="arc"
+     style="opacity:1;color:#000000;fill:url(#radialGradient3947);fill-opacity:1.0;fill-rule:nonzero;stroke:#ffffff;stroke-width:6.4000001;stroke-linecap:butt;stroke-linejoin:miter;marker:none;marker-start:none;marker-mid:none;marker-end:none;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
+     id="path2776"
+     sodipodi:cx="-108.49786"
+     sodipodi:cy="335.38254"
+     sodipodi:rx="207.64247"
+     sodipodi:ry="207.64247"
+     d="M 99.144608,335.38254 A 207.64247,207.64247 0 1 1 -316.14034,335.38254 A 207.64247,207.64247 0 1 1 99.144608,335.38254 z"
+     transform="translate(355.42404,-89.791337)"
+     inkscape:export-xdpi="23.040001"
+     inkscape:export-ydpi="23.040001" />
+  <image
+     xlink:href="./girl.png"
+     sodipodi:absref="./girl.png"
+     width="500"
+     height="500"
+     id="image9"
+     x="9.3532648"
+     y="14.965223" />
+  <path
+     style="opacity:1;color:#000000;fill:#ff0000;fill-opacity:1;fill-rule:nonzero;stroke:#000000;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;marker:none;marker-start:none;marker-mid:none;marker-end:none;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;visibility:visible;display:inline;overflow:visible;enable-background:accumulate;font-family:Bitstream Vera Sans;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:12;text-anchor:start;text-align:start;writing-mode:lr;line-height:125%"
+     d="M 250 6.625 C 115.65079 6.625 6.6249998 115.65079 6.625 250 C 6.625 384.34921 115.65079 493.37499 250 493.375 C 384.34921 493.375 493.37499 384.34921 493.375 250 C 493.375 115.65079 384.34921 6.625 250 6.625 z M 250 54.90625 C 297.80117 54.90625 341.59559 72.120606 375.53125 100.6875 L 93.78125 366.84375 C 69.375541 334.26961 54.90625 293.80865 54.90625 250 C 54.90625 142.30159 142.30158 54.90625 250 54.90625 z M 409.53125 137.71875 C 431.93377 169.47717 445.09375 208.20507 445.09375 250 C 445.09374 357.69842 357.69842 445.09375 250 445.09375 C 204.21975 445.09375 162.10234 429.30496 128.8125 402.875 L 409.53125 137.71875 z "
+     id="path2744" />
+  <path
+     style="font-size:12px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;opacity:1;color:black;fill:red;fill-opacity:1;fill-rule:nonzero;stroke:black;stroke-width:3.99999833;stroke-linecap:butt;stroke-linejoin:miter;marker:none;marker-start:none;marker-mid:none;marker-end:none;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;visibility:visible;display:inline;overflow:visible;font-family:Bitstream Vera Sans"
+     d="M 758.33839,14.723922 C 635.60653,14.723922 536.00833,114.32211 536.00833,237.05397 C 536.00833,359.78585 635.60653,459.38403 758.33839,459.38403 C 881.07026,459.38403 980.66845,359.78585 980.66845,237.05397 C 980.66845,114.32211 881.07026,14.723922 758.33839,14.723922 z "
+     id="path1898"
+     sodipodi:nodetypes="csssc" />
+  <text
+     xml:space="preserve"
+     style="font-size:35.9999733px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:black;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+     id="text1887"
+     sodipodi:linespacing="125%"
+     transform="matrix(-0.63682,-0.771014,0.771014,-0.63682,550.7689,994.4441)"
+     inkscape:transform-center-y="74.430871"
+     inkscape:transform-center-x="-13.752462"><textPath
+       xlink:href="#path1898"
+       id="textPath1900">Sistema Anti Kazzeggio</textPath></text>
+  <path
+     style="font-size:12px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;opacity:1;color:black;fill:red;fill-opacity:1;fill-rule:nonzero;stroke:black;stroke-width:3.99999928;stroke-linecap:butt;stroke-linejoin:miter;marker:none;marker-start:none;marker-mid:none;marker-end:none;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;visibility:visible;display:inline;overflow:visible;font-family:Bitstream Vera Sans"
+     d="M 1378.6711,419.83972 C 1494.1744,419.83972 1587.9066,510.2199 1587.9066,621.59268 C 1587.9066,732.96548 1494.1744,823.34565 1378.6711,823.34565 C 1263.1678,823.34565 1169.4357,732.96548 1169.4357,621.59268 C 1169.4357,510.2199 1263.1678,419.83972 1378.6711,419.83972 z "
+     id="path1910"
+     sodipodi:nodetypes="csssc" />
+  <text
+     xml:space="preserve"
+     style="font-size:36px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:black;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+     id="text1904"
+     sodipodi:linespacing="125%"
+     transform="matrix(0.425005,-0.905191,0.905191,0.425005,-901.9174,1233.603)"><textPath
+       xlink:href="#path1910"
+       id="textPath1912">Statistical Activity Kounter</textPath></text>
+</svg>
