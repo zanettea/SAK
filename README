@@ -1,0 +1,7 @@
+Linux/Windows compilation:
+
+qmake
+make
+
+# only for Valentina:
+# qmake CONFIG+=vale

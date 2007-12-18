@@ -2,8 +2,6 @@
 #include <signal.h>
 #include "sak.h"
 
-#include <QApplication>
-
 
 void sighandler(int signum) {
     static bool quitting = false;

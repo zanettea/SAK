@@ -1,4 +1,7 @@
-
+/***************************************************************************
+ *   Copyright (C) 2007 by Arrigo Zanette                                  *
+ *   zanettea@gmail.com                                                    *
+ ***************************************************************************/
 
 #include <QtGui>
 #include <QSettings>
@@ -254,7 +257,7 @@ class GView : public QGraphicsView
 {
 public:
 	void drawBackground(QPainter* p, const QRectF & rect) {
-		QBrush brush(QColor(0,0,0,200));
+		QBrush brush(QColor(0,0,0,40));
 		p->setCompositionMode(QPainter::CompositionMode_Source);
 		p->fillRect(rect, brush);
 	}
@@ -314,7 +317,7 @@ SakMessageItem::SakMessageItem(const QString& message) {
     m_rect = QRectF(QPointF(0, 0), QSizeF(800, 200));
 
     QPixmap p(":/images/whip.png");
-    p = p.scaled(200, 600, Qt::KeepAspectRatio);
+    p = p.scaled(200, 600, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     m_p = new QGraphicsPixmapItem(p, this);
     m_p->setPos(0, 0);
 
