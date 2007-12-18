@@ -2,7 +2,7 @@
 #include <signal.h>
 #include "sak.h"
 
-#include <QApplication>
+#include "qapplicationargb.h"
 
 
 void sighandler(int signum) {
@@ -25,7 +25,7 @@ protected:
 
 int main(int argc, char** argv)
 {
-    QApplication app (argc, argv);
+    QApplicationArgb app (argc, argv);
     if (!QSystemTrayIcon::isSystemTrayAvailable()) {
         QMessageBox::critical(0, QObject::tr("Systray"),
                               QObject::tr("I couldn't detect any system tray "
