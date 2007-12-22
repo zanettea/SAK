@@ -1246,7 +1246,7 @@ void Sak::populateHitsList()
             const QDateTime& d = itr->first;
             if (d.date() >= cal1->selectedDate() && d.date() <= cal2->selectedDate()) {
                 QTreeWidgetItem* w = new QTreeWidgetItem;
-                w->setText(0, d.toString());
+                w->setText(0, d.toString("dd/MM/yyyy hh:mm:ss"));
                 w->setText(1, t.title);
                 w->setText(2, QString("%1").arg(Task::hours(itr->second)));
                 w->setIcon(1, t.icon);
