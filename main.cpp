@@ -60,6 +60,7 @@ int main(int argc, char** argv)
     Sak sak;
     bool rc = app.exec();
 
+    lockFile.close();
     QFile::remove(lockFile.fileName());
     return rc;
 }
