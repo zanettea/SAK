@@ -2,6 +2,10 @@
 #include <signal.h>
 #include "sak.h"
 
+#ifdef Q_OS_LINUX
+#include "qapplicationargb.h"
+#endif
+
 
 void sighandler(int signum) {
     static bool quitting = false;
@@ -23,7 +27,11 @@ protected:
 
 int main(int argc, char** argv)
 {
+#ifdef Q_OS_LINUX
+    QApplicationArgb app (argc, argv);
+#else 
     QApplication app (argc, argv);
+#endif
     if (!QSystemTrayIcon::isSystemTrayAvailable()) {
         QMessageBox::critical(0, QObject::tr("Systray"),
                               QObject::tr("I couldn't detect any system tray "

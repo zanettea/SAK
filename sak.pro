@@ -8,8 +8,8 @@ DEPENDPATH += .
 INCLUDEPATH += .
 
 # Input
-HEADERS += sak.h
-SOURCES += main.cpp sak.cpp
+HEADERS += sak.h qapplicationargb.h
+SOURCES += main.cpp sak.cpp qapplicationargb.cpp
 
 contains(CONFIG, vale) {
 	RESOURCES += sak.vale.qrc
