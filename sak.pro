@@ -8,11 +8,26 @@ DEPENDPATH += .
 INCLUDEPATH += .
 
 # Input
-HEADERS += sak.h qapplicationargb.h
-SOURCES += main.cpp sak.cpp qapplicationargb.cpp
+HEADERS += sak.h
+SOURCES += main.cpp sak.cpp
+
+win32 {
+} 
+
+unix {
+
+contains(CONFIG, argb) {
+ DEFINES += ARGB
+ HEADERS += qapplicationargb.h
+ SOURCES += qapplicationargb.cpp
+} else {
+}
+}
 
 contains(CONFIG, vale) {
 	RESOURCES += sak.vale.qrc
 } else {
 	RESOURCES += sak.qrc
 }
+
+

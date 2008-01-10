@@ -2,7 +2,7 @@
 #include <signal.h>
 #include "sak.h"
 
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX) && defined(ARGB)
 #include "qapplicationargb.h"
 #endif
 
@@ -27,7 +27,7 @@ protected:
 
 int main(int argc, char** argv)
 {
-#ifdef Q_OS_LINUX
+#if defined(ARGB) && defined(Q_OS_LINUX)
     QApplicationArgb app (argc, argv);
 #else 
     QApplication app (argc, argv);
