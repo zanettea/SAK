@@ -130,6 +130,8 @@ protected:
     bool settingsEventFilter(QEvent* e);
     bool hitsListEventFilter(QEvent* e);
     void commitCurrentTask();
+public slots:
+    void flush();
 protected slots:
     // tasks
     void addDefaultTask();
@@ -139,6 +141,7 @@ protected slots:
     void popup();
     void workingOnTask();
     void clearView();
+    void trayIconActivated(QSystemTrayIcon::ActivationReason);
     // hits
     void selectedStartDate(const QDate& date);
     void selectedEndDate(const QDate& date);
@@ -147,6 +150,7 @@ protected slots:
     void addDefaultHit();
 private:
     int m_timerId, m_timeoutPopup;
+    QDateTime m_nextTimerEvent;
     QWidget* m_settings;
     QHash<QString, Task> m_tasks;
     QHash<QString, Task> m_editedTasks;
@@ -198,6 +202,7 @@ private:
     QAction *minimizeAction;
     QAction *maximizeAction;
     QAction *restoreAction;
+    QAction *flushAction;
     QAction *quitAction;
 
     QSystemTrayIcon *trayIcon;

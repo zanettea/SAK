@@ -105,6 +105,7 @@ class Incremental
 public:
     QMap<QDateTime, QPair<QString, quint8> > foundPieces;
     QMap<QDateTime, QPair<QString, quint8> > addedPieces;
+    QDateTime lastTimeStamp;
     QList<QString> addedFiles;
     QDir m_dir;
     Incremental() {
@@ -129,6 +130,7 @@ public:
                 qDebug() << "SAK: found piece from task " << task << " timestamp " << time << " duration " << Task::hours(p.second) <<  " hours";
             }
         }
+        lastTimeStamp = QDateTime::currentDateTime();
     }
     void addPiece(const QString& task, const QDateTime& now, quint8 value) {
         QString filename= m_dir.filePath(task + "." + now.toString(BACKUPDATEFORMAT) + ".incr");
@@ -140,6 +142,7 @@ public:
         stream << value;
         qDebug() << "SAK: write piece of task " << task << " of duration " << Task::hours(value) << " in file " << filename;
         addedPieces[now] = QPair<QString, quint8>(task, value);
+        lastTimeStamp = now;
     }
     void clearAddedPieces() {
         foreach(const QString& file, addedFiles) {
@@ -286,11 +289,11 @@ bool Task::checkConsistency()
 class GView : public QGraphicsView
 {
 public:
-	void drawBackground(QPainter* p, const QRectF & rect) {
-		QBrush brush(QColor(0,0,0,40));
-		p->setCompositionMode(QPainter::CompositionMode_Source);
-		p->fillRect(rect, brush);
-	}
+    void drawBackground(QPainter* p, const QRectF & rect) {
+        QBrush brush(QColor(0,0,0,40));
+        p->setCompositionMode(QPainter::CompositionMode_Source);
+        p->fillRect(rect, brush);
+    }
 };
 
 //
@@ -660,6 +663,7 @@ Sak::Sak(QObject* parent)
         itr++;
     }
 
+    trayIcon->installEventFilter(this);
     m_settings->installEventFilter(this);
     hitsList->installEventFilter(this);
     tasksTree->installEventFilter(this);
@@ -719,14 +723,15 @@ Sak::Sak(QObject* parent)
 
     m_previewing = false;
 
-    m_timerId = startTimer( Task::hours(m_currentInterval)*3600.0*1000.0 / 2 );
+    int msecs = Task::hours(m_currentInterval)*3600.0*1000.0 / 2;
+    m_timerId = startTimer( msecs );
+    m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(msecs);
 }
 
-
-Sak::~Sak()
+void Sak::flush()
 {
     if (!m_settings) return;
-        m_backupper->doCyclicBackup();
+    m_backupper->doCyclicBackup();
     QSettings settings("ZanzaSoft", "SAK");
     QByteArray tasksArray;
     QDataStream stream(&tasksArray, QIODevice::ReadWrite);
@@ -736,6 +741,13 @@ Sak::~Sak()
     settings.setValue("Ping interval", durationSpinBox->value());
     settings.setValue("Message", bodyEdit->toPlainText());
     settings.sync();
+    m_incremental->clearAddedPieces();
+}
+
+Sak::~Sak()
+{
+    if (!m_settings) return;
+    flush();
     delete m_settings;
     m_view->scene()->deleteLater();
     delete m_view;
@@ -744,7 +756,6 @@ Sak::~Sak()
     delete m_addHitAction;
     delete m_addHitMenu;
     delete m_backupper;
-    m_incremental->clearAddedPieces();
     delete m_incremental;
 }
 
@@ -757,7 +768,7 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
         return settingsEventFilter(e);
     } else if (obj == hitsList) {
         return hitsListEventFilter(e);
-    }else if (obj == m_settings && e->type() == QEvent::Close) {
+    } else if (obj == m_settings && e->type() == QEvent::Close) {
         if (trayIcon->isVisible()) {
             QMessageBox::information(m_settings, tr("Systray"),
                                      tr("The program will keep running in the "
@@ -779,6 +790,14 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
         if (trayIcon->isVisible()) {
             return true;
         }
+    } else if (obj && obj == trayIcon && e->type() == QEvent::ToolTip) {
+        QDateTime last = m_incremental->lastTimeStamp;
+        int seconds = QDateTime::currentDateTime().secsTo(m_nextTimerEvent);
+        int hours = seconds / 3600;
+        int minutes = (seconds / 60) % 60;
+        seconds %= 60;
+        trayIcon->setToolTip(tr(qPrintable(QString("<h2>Sistema Anti Kazzeggio</h2>Last registered hit at <b>%1</b>.<br />Next hit in <b>%2:%3:%4</b>").arg(last.toString()).arg(hours).arg(minutes).arg(seconds))));
+        return false;
     }
     return false;
 }
@@ -968,11 +987,14 @@ void Sak::timerEvent(QTimerEvent* e)
             m_timeoutPopup = startTimer(qMax( 5000.0, Task::hours(m_currentInterval)*3600.0*1000.0/10.0)); // 5 secmin
             // restart timer
             killTimer(m_timerId);
-            m_timerId = startTimer(Task::hours(m_currentInterval)*3600*1000);
+            int msecs = Task::hours(m_currentInterval)*3600*1000;
+            m_timerId = startTimer(msecs);
+            m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(msecs);
         } else {
             qDebug() << "SAK: wait 5 seconds";
             killTimer(m_timerId);
             m_timerId = startTimer(5000);
+            m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(5000);
         }
     } else if (e->timerId() == m_timeoutPopup) {
         clearView();
@@ -1347,6 +1369,8 @@ void Sak::setupSettingsWidget()
     trayIconMenu->addAction(maximizeAction);
     trayIconMenu->addAction(restoreAction);
     trayIconMenu->addSeparator();
+    trayIconMenu->addAction(flushAction);
+    trayIconMenu->addSeparator();
     trayIconMenu->addAction(quitAction);
     trayIcon = new QSystemTrayIcon(m_settings);
     trayIcon->setContextMenu(trayIconMenu);
@@ -1355,6 +1379,7 @@ void Sak::setupSettingsWidget()
     m_settings->setWindowTitle("SaK - Sistema Anti Kazzeggio");
     trayIcon->setToolTip( tr("Sistema Anti Kazzeggio") );
     trayIcon->show();
+    connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(trayIconActivated(QSystemTrayIcon::ActivationReason)));
     
     mainLayout = new QVBoxLayout;
     tab1->setLayout(mainLayout);
@@ -1455,7 +1480,15 @@ void Sak::createActions()
     quitAction = new QAction(tr("&Quit"), m_settings);
     connect(quitAction, SIGNAL(triggered()), qApp, SLOT(quit()));
 
+    flushAction = new QAction(tr("&Flush data/settings to disk"), m_settings);
+    connect(flushAction, SIGNAL(triggered()), this, SLOT(flush()));
 }
 
+void Sak::trayIconActivated(QSystemTrayIcon::ActivationReason reason)
+{
+if (reason == QSystemTrayIcon::DoubleClick) {
+         setVisible(true);
+    }
+}
 
 //END Settings <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
