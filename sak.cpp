@@ -712,6 +712,7 @@ Sak::Sak(QObject* parent)
     m_view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_view->installEventFilter(this);
     m_view->setWindowFlags(m_view->windowFlags() | Qt::WindowStaysOnTopHint );
+    m_view->setWindowModality(Qt::ApplicationModal);
     m_view->setAttribute(Qt::WA_QuitOnClose, false);
     m_view->setWindowIcon( QIcon(":/images/icon.png") );
     m_view->setWindowTitle("SaK - Sistema Anti Kazzeggio");
@@ -1244,6 +1245,8 @@ void Sak::popup()
     m_view->showFullScreen();
     m_view->raise();
     m_view->setFocus();
+    qApp->alert(m_view, 5000);
+    qApp->beep();
 }
 
 void Sak::selectedStartDate(const QDate& date)
