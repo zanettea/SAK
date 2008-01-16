@@ -1182,6 +1182,10 @@ QRect Layouting( const QList<SakWidget*>& sortedWidgets)
 
 void Sak::popup()
 {
+#ifdef Q_OS_LINUX
+    // fix interaction with yakuake
+    QPushButton("Polling...", 0).show();
+#endif
     if (sender() == previewButton) {
         m_previewing = true;
     }
@@ -1246,7 +1250,7 @@ void Sak::popup()
     m_view->raise();
     m_view->setFocus();
     qApp->alert(m_view, 5000);
-    qApp->beep();
+    qApp->setActiveWindow(m_view);
 }
 
 void Sak::selectedStartDate(const QDate& date)
