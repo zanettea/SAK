@@ -724,9 +724,35 @@ Sak::Sak(QObject* parent)
 
     m_previewing = false;
 
-    int msecs = Task::hours(m_currentInterval)*3600.0*1000.0 / 2;
-    m_timerId = startTimer( msecs );
-    m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(msecs);
+    m_timerId = 0;
+    start();
+}
+
+void Sak::start()
+{
+    if (!m_timerId) {
+        int msecs = Task::hours(m_currentInterval)*3600.0*1000.0 / 2;
+        m_timerId = startTimer( msecs );
+        m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(msecs);
+        startAction->setEnabled(false);
+        stopAction->setEnabled(true);
+    } else {
+        startAction->setEnabled(true);
+        stopAction->setEnabled(false);
+    }
+}
+
+void Sak::stop()
+{
+    if (m_timerId) {
+        killTimer(m_timerId);
+        m_timerId = 0;
+        stopAction->setEnabled(false);
+        startAction->setEnabled(true);
+    } else {
+        stopAction->setEnabled(true);
+        startAction->setEnabled(false);
+    }
 }
 
 void Sak::flush()
@@ -797,7 +823,7 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
         int hours = seconds / 3600;
         int minutes = (seconds / 60) % 60;
         seconds %= 60;
-        trayIcon->setToolTip(tr(qPrintable(QString("<h2>Sistema Anti Kazzeggio</h2>Last registered hit at <b>%1</b>.<br />Next hit in <b>%2:%3:%4</b>").arg(last.toString()).arg(hours).arg(minutes).arg(seconds))));
+        trayIcon->setToolTip(tr(qPrintable(QString("<h2>Sistema Anti Kazzeggio</h2>Last registered hit at <b>%1</b>.<br />%2").arg(last.toString()).arg(m_timerId > 0 ? QString("Next hit in <b>%2:%3:%4</b>").arg(hours).arg(minutes).arg(seconds) : QString("<b>Paused</b>")))));
         return false;
     }
     return false;
@@ -1013,6 +1039,7 @@ void Sak::clearView()
     m_view->setScene(new QGraphicsScene);
     m_view->scene()->setSceneRect(QDesktopWidget().geometry());
     m_previewing = false;
+    m_view->releaseKeyboard();
 }
 
 void Sak::workingOnTask()
@@ -1184,7 +1211,11 @@ void Sak::popup()
 {
 #ifdef Q_OS_LINUX
     // fix interaction with yakuake
-    QPushButton("Polling...", 0).show();
+    QPushButton* focusCatcher = new QPushButton("Polling...", 0);
+    focusCatcher->show();
+    focusCatcher->move(-1000,-1000);
+    //focusCatcher->setWindowFlags(focusCatcher->windowFlags() | Qt::FramelessWindowHint);
+    QMetaObject::invokeMethod(focusCatcher, "deleteLater", Qt::QueuedConnection);
 #endif
     if (sender() == previewButton) {
         m_previewing = true;
@@ -1249,6 +1280,7 @@ void Sak::popup()
     m_view->showFullScreen();
     m_view->raise();
     m_view->setFocus();
+    m_view->grabKeyboard();
     qApp->alert(m_view, 5000);
     qApp->setActiveWindow(m_view);
 }
@@ -1372,10 +1404,12 @@ void Sak::setupSettingsWidget()
     tab2->setLayout(mainLayout);
 
     trayIconMenu = new QMenu(m_settings);
-    trayIconMenu->addAction(minimizeAction);
-    trayIconMenu->addAction(maximizeAction);
-    trayIconMenu->addAction(restoreAction);
-    trayIconMenu->addSeparator();
+    //trayIconMenu->addAction(minimizeAction);
+    //trayIconMenu->addAction(maximizeAction);
+    //trayIconMenu->addAction(restoreAction);
+    //trayIconMenu->addSeparator();
+    trayIconMenu->addAction(startAction);
+    trayIconMenu->addAction(stopAction);
     trayIconMenu->addAction(flushAction);
     trayIconMenu->addSeparator();
     trayIconMenu->addAction(quitAction);
@@ -1486,6 +1520,12 @@ void Sak::createActions()
 
     quitAction = new QAction(tr("&Quit"), m_settings);
     connect(quitAction, SIGNAL(triggered()), qApp, SLOT(quit()));
+
+    startAction = new QAction(tr("Start polling"), m_settings);
+    connect(startAction, SIGNAL(triggered()), this, SLOT(start()));
+
+    stopAction = new QAction(tr("Stop polling"), m_settings);
+    connect(stopAction, SIGNAL(triggered()), this, SLOT(stop()));
 
     flushAction = new QAction(tr("&Flush data/settings to disk"), m_settings);
     connect(flushAction, SIGNAL(triggered()), this, SLOT(flush()));

@@ -131,6 +131,8 @@ protected:
     bool hitsListEventFilter(QEvent* e);
     void commitCurrentTask();
 public slots:
+    void start();
+    void stop();
     void flush();
 protected slots:
     // tasks
@@ -202,6 +204,8 @@ private:
     QAction *minimizeAction;
     QAction *maximizeAction;
     QAction *restoreAction;
+    QAction *startAction;
+    QAction *stopAction;
     QAction *flushAction;
     QAction *quitAction;
 
