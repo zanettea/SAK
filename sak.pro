@@ -7,6 +7,9 @@ TARGET =
 DEPENDPATH += .
 INCLUDEPATH += .
 
+CONFIG += qt debug
+QT += opengl
+
 # Input
 HEADERS += sak.h
 SOURCES += main.cpp sak.cpp
@@ -18,8 +21,6 @@ unix {
 
 contains(CONFIG, argb) {
  DEFINES += ARGB
- HEADERS += qapplicationargb.h
- SOURCES += qapplicationargb.cpp
 } else {
 }
 }

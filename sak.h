@@ -43,14 +43,16 @@ class SakMessageItem : public QGraphicsItem
 {
 public:
     SakMessageItem(const QString& message);
-    void setPixmap(const QPixmap &p);
-    QPixmap pixmap();
+    ~SakMessageItem();
+    //void setPixmap(const QPixmap &p);
+    //QPixmap pixmap();
     void setGeometry(const QRect&);
     QRectF boundingRect() const { return m_rect; }
     void paint( QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = 0 );
 private:
     QGraphicsPixmapItem* m_p;
-    QGraphicsTextItem* m_t;
+    QTextDocument* m_t;
+    QPixmap m_cachedPixmap;
     QRectF m_rect;
 };
 
@@ -87,14 +89,16 @@ private:
     static QBitmap* m_mask;
     int m_border;
     static int m_maxzvalue;
-    QGraphicsPixmapItem* m_image;
-    QGraphicsPixmapItem* m_image2;
-    QGraphicsTextItem* m_text;
+    QTextDocument* m_text;
+    QPixmap m_cachedPixmap;
+	QPixmap m_cachedPixmapB;
     int m_flipTimer;
     int m_showDetailsTimer;
+	// is painting side B??
+    bool m_sideB;
+	// is animating??
     bool m_showingDetails;
     double m_animItr;
-
     double m_dailyWorked, m_weeklyWorked, m_monthlyWorked, m_dailyPercentage, m_weeklyPercentage, m_monthlyPercentage;
 };
 

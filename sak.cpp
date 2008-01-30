@@ -285,15 +285,39 @@ bool Task::checkConsistency()
 
 
 // GView
+#include <QtOpenGL>
+
+                 class MyGL : public QGLWidget
+{
+    public:
+        MyGL() {}
+    protected:
+        virtual void updateGL () {QTime t; t.start(); QGLWidget::updateGL(); qDebug() << "updatedGL in " << t.elapsed(); }
+        virtual void updateOverlayGL () {QTime t; t.start(); QGLWidget::updateOverlayGL(); qDebug() << "updatedOverlayGL in " << t.elapsed(); }
+        virtual void glDraw () {QTime t; t.start(); QGLWidget::glDraw(); qDebug() << "glDrawGL in " << t.elapsed(); }
+        virtual void glInit () {QTime t; t.start(); QGLWidget::glInit(); qDebug() << "glinit in " << t.elapsed(); }
+        virtual void initializeGL () {QTime t; t.start(); QGLWidget::initializeGL(); qDebug() << "initializeGL in " << t.elapsed(); }
+        virtual void initializeOverlayGL () {QTime t; t.start(); QGLWidget::initializeOverlayGL(); qDebug() << "initializeOverlayGL in " << t.elapsed(); }
+        virtual void paintEvent ( QPaintEvent * event ) {QTime t; t.start(); QGLWidget::paintEvent(event); qDebug() << "paintevnt in " << t.elapsed(); }
+        virtual void paintGL () {QTime t; t.start(); QGLWidget::paintGL(); qDebug() << "paintGL in " << t.elapsed(); }
+        virtual void paintOverlayGL () {QTime t; t.start(); QGLWidget::paintOverlayGL(); qDebug() << "paintOverlayGL in " << t.elapsed(); }
+        virtual void resizeEvent ( QResizeEvent * event ) {QTime t; t.start(); QGLWidget::resizeEvent(event); qDebug() << "resizeevent in " << t.elapsed(); }
+        virtual void resizeGL ( int width, int height ) {QTime t; t.start(); QGLWidget::resizeGL(width, height); qDebug() << "resizeGL in " << t.elapsed(); }
+        virtual void resizeOverlayGL ( int width, int height ) {QTime t; t.start(); QGLWidget::resizeOverlayGL(width, height); qDebug() << "resizeoverlyGL in " << t.elapsed(); }
+};
 
 class GView : public QGraphicsView
 {
-public:
-    void drawBackground(QPainter* p, const QRectF & rect) {
-        QBrush brush(QColor(0,0,0,40));
-        p->setCompositionMode(QPainter::CompositionMode_Source);
-        p->fillRect(rect, brush);
-    }
+    public:
+        GView() { if (QGLFormat::hasOpenGL()) { qDebug() << "Using OpenGL"; 
+	setViewport(new MyGL); 
+        } 
+        }
+        void drawBackground(QPainter* p, const QRectF & rect) {
+            QBrush brush(QColor(0,0,0,200));
+            p->setCompositionMode(QPainter::CompositionMode_Source);
+            p->fillRect(rect, brush);
+        }
 };
 
 //
@@ -346,22 +370,27 @@ void PixmapViewer::mousePressEvent(QMouseEvent* e)
 
 //BEGIN SakMessageItem <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-SakMessageItem::SakMessageItem(const QString& message) {
+SakMessageItem::SakMessageItem(const QString& message) : QGraphicsItem(0) {
     m_rect = QRectF(QPointF(0, 0), QSizeF(800, 200));
 
+    setAcceptsHoverEvents(true);
     QPixmap p(":/images/whip.png");
     p = p.scaled(200, 600, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    m_p = new QGraphicsPixmapItem(p, this);
-    m_p->setPos(0, 0);
+    m_p=new QGraphicsPixmapItem(p,this);
+    m_p->setPos(0,0);
 
-    m_t = new QGraphicsTextItem(this);
+    m_t = new QTextDocument;
     m_t->setHtml(message);
-    m_t->setPos(240, 40);
     m_t->setTextWidth(520);
 
     setZValue(-1);
-    //    setFlag(ItemIsMovable, true);
-    //    setFlag(ItemIsSelectable, true);
+    //setFlag(ItemIsMovable, true);
+    //setFlag(ItemIsSelectable, true);
+}
+
+SakMessageItem::~SakMessageItem()
+{
+     delete m_t;
 }
 
 void SakMessageItem::setGeometry(const QRect& r) {
@@ -373,38 +402,52 @@ void SakMessageItem::setGeometry(const QRect& r) {
     t.scale(ratio, ratio);
     setTransform(t);
     setPos( 0, 0 );
+    m_cachedPixmap  = QPixmap();
 }
 
-void SakMessageItem::paint(QPainter * painter, const QStyleOptionGraphicsItem *, QWidget * )
+void SakMessageItem::paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * )
 {
+    if (m_cachedPixmap.isNull()) {
+        m_cachedPixmap = QPixmap(QSize(m_rect.width(), m_rect.height()));
+        m_cachedPixmap.fill(Qt::transparent);
+        QPainter p(&m_cachedPixmap);
+
+        int m_border=20;
+        QPen pen;
+        pen.setWidth(4);
+        pen.setColor(QColor(Qt::white).darker(150));
+        p.setPen(pen);
+        p.setBrush(Qt::white);
+
+        QPainterPath path;
+        int curve = 15;
+        qreal w = 200 + qMin(600.0, m_t->pageSize().width());
+        qreal h = qMax(80.0+m_border+curve, qMin(200.0, m_t->pageSize().height()+40));
+        path.moveTo(200 + m_border, 75);
+        path.lineTo(200, 75);
+        path.lineTo(200+m_border, 40);
+        path.lineTo(200+m_border, m_border + curve);
+        path.cubicTo(QPointF(200+m_border, m_border), QPointF(200+m_border, m_border), QPointF(200+m_border+curve, m_border));
+        path.lineTo(w-m_border-curve, m_border);
+        path.cubicTo(QPointF(w-m_border, m_border), QPointF(w-m_border, m_border), QPointF(w-m_border, m_border+curve));
+        path.lineTo(w-m_border, h-m_border-curve);
+        path.cubicTo(QPointF(w-m_border,h-m_border), QPointF(w-m_border,h-m_border), QPointF(w-m_border-curve,h-m_border));
+        path.lineTo(200+m_border+curve,h-m_border);
+        path.cubicTo(QPointF(200+m_border,h-m_border),QPointF(200+m_border,h-m_border),QPointF(200+m_border,h-m_border-curve));
+        path.closeSubpath();
+        p.drawPath(path);
+
+        p.translate(240,40);
+        m_t->drawContents(&p);
+    }
+
     painter->save();
-    int m_border=20;
-    QPen pen;
-    pen.setWidth(4);
-    pen.setColor(QColor(Qt::white).darker(150));
-    painter->setPen(pen);
-    painter->setBrush(Qt::white);
-
-    QPainterPath path;
-    int curve = 15;
-    qreal w = 200 + qMin(600.0, m_t->boundingRect().width());
-    qreal h = qMax(80.0+m_border+curve, qMin(200.0, m_t->boundingRect().height()+40));
-    path.moveTo(200 + m_border, 75);
-    path.lineTo(200, 75);
-    path.lineTo(200+m_border, 40);
-    path.lineTo(200+m_border, m_border + curve);
-    path.cubicTo(QPointF(200+m_border, m_border), QPointF(200+m_border, m_border), QPointF(200+m_border+curve, m_border));
-    path.lineTo(w-m_border-curve, m_border);
-    path.cubicTo(QPointF(w-m_border, m_border), QPointF(w-m_border, m_border), QPointF(w-m_border, m_border+curve));
-    path.lineTo(w-m_border, h-m_border-curve);
-    path.cubicTo(QPointF(w-m_border,h-m_border), QPointF(w-m_border,h-m_border), QPointF(w-m_border-curve,h-m_border));
-    path.lineTo(200+m_border+curve,h-m_border);
-    path.cubicTo(QPointF(200+m_border,h-m_border),QPointF(200+m_border,h-m_border),QPointF(200+m_border,h-m_border-curve));
-    path.closeSubpath();
-    painter->drawPath(path);
+    QRectF exposed = option->exposedRect.adjusted(-1,-1,1,1);
+    exposed &= QRectF(0,0, m_cachedPixmap.width(), m_cachedPixmap.height());
+    painter->drawPixmap(exposed, m_cachedPixmap, exposed);
     painter->restore();
-}
 
+}
 
 //END SakMessageItem >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
@@ -423,13 +466,13 @@ SakWidget::SakWidget(const Task& task)
 
     m_flipTimer = 0;
     m_showingDetails=false;
+    m_sideB = false;
     m_ismoving = false;
 
-    setAcceptsHoverEvents(true);
+    setAcceptsHoverEvents(false);
     m_dailyWorked = m_weeklyWorked = m_dailyPercentage = m_weeklyPercentage = 0;
 
     m_text = 0;
-    m_image = m_image2 = 0;
     m_rect = QRectF(0,0,400,400);
 
     m_border = 5;
@@ -446,31 +489,9 @@ SakWidget::SakWidget(const Task& task)
         p.drawRoundRect(m_rect.adjusted(border,border, -border,-border), 25, 25 );
     }
 
-    QPixmap ic (m_task.icon);
-    if (!ic.isNull()) {
-        ic = ic.scaled(m_mask->width()-14, m_mask->height()-14, Qt::KeepAspectRatio);
-        QRect r = ic.rect();
-        r.moveTopLeft(QPoint((m_mask->width() - ic.width())/2, (m_mask->height()-ic.height())/2));
-        ic.setMask(m_mask->copy(r));
-        m_image = new QGraphicsPixmapItem(ic, this);
-        m_image->setPos((m_rect.width() - ic.width())/2, (m_rect.height() - ic.height())/2);
-
-        m_image2 = new QGraphicsPixmapItem(ic.scaled(100, 100, Qt::KeepAspectRatio), this);
-        m_image2->setPos(25, m_rect.height() - 120);
-        m_image2->setZValue(-1);
-        m_image2->hide();
-    }
-    
-    m_text = new QGraphicsTextItem(this);
-    //m_text->document()->setPageSize(QSize(m_rect.width() - 20, m_rect.height()-20));
-    QTransform t = transform();
-    t.scale(-1,1);
-    t.translate(-m_rect.width() + 10, 10);
-    m_text->setTransform(t);
+    m_text = new QTextDocument(this);
     m_text->setHtml(m_tooltipText);
     m_text->setTextWidth(m_rect.width() - 20);
-    m_text->setDefaultTextColor(m_task.fgColor);
-    m_text->hide();
 
 };
 
@@ -485,6 +506,7 @@ void SakWidget::setStatistics(double dailyWorked, double weeklyWorked, double mo
     m_monthlyPercentage = monthlyPercentage;
     m_tooltipText = QString("<center><h1>%1</h1></center>%2%3<div>Today: <b>%4</b> h (%5%)<br />Last week: <b>%6</b> h (%7%)<br />Last month: <b>%8</b> h (%9%)</div>").arg(m_task.title).arg(m_task.description.isEmpty() ? "" : "<p>").arg(m_task.description).arg(m_dailyWorked).arg(m_dailyPercentage, 0, 'f', 2).arg(m_weeklyWorked).arg(m_weeklyPercentage, 0, 'f', 2).arg(m_monthlyWorked).arg(m_monthlyPercentage, 0, 'f', 2);
     m_text->setHtml(m_tooltipText);
+    m_cachedPixmapB = QPixmap();
 }
 
 #define ITERATIONS 5
@@ -500,11 +522,7 @@ void SakWidget::timerEvent(QTimerEvent* e)
             setTransform(t);
             setPos( m_position + m_animItr * ( scene()->sceneRect().center() - m_rect.center() - m_position ) / 2/ ITERATIONS );
             if (m_animItr == ITERATIONS + 1) {
-                m_text->show();
-                if (m_image) {
-                    m_image->hide();
-                    m_image2->show();
-                }
+                m_sideB = true;
             } else if (m_animItr >= 2*ITERATIONS ) {
                 killTimer(m_flipTimer);
                 m_animItr=0;
@@ -519,11 +537,7 @@ void SakWidget::timerEvent(QTimerEvent* e)
             setTransform(t);
             setPos( scene()->sceneRect().center() - m_rect.center() + m_animItr * ( m_position - scene()->sceneRect().center() + m_rect.center()) / 2/ ITERATIONS );
             if (m_animItr == ITERATIONS + 1) {
-                if (m_image) {
-                    m_image->show();
-                    m_image2->hide();
-                }
-                m_text->hide();
+                m_sideB = false;
             } else if (m_animItr >= 2*ITERATIONS ) {
                 killTimer(m_flipTimer);
                 m_animItr=0;
@@ -559,6 +573,8 @@ void SakWidget::setGeometry(const QRect& geom) {
     QTransform t=transform();
     t.setMatrix(m_scale, t.m12(), t.m13(), t.m21(), m_scale, t.m23(), t.m31(), t.m32(), t.m33());
     setTransform(t);
+  
+    m_cachedPixmap = m_cachedPixmapB = QPixmap();
 }
 
 
@@ -594,28 +610,80 @@ void SakWidget::mouseMoveEvent(QGraphicsSceneMouseEvent* e)
     }
 }
 
-void SakWidget::paint ( QPainter * painter, const QStyleOptionGraphicsItem *, QWidget *)
+void SakWidget::paint ( QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget *)
 {
-    painter->save();
-    QPen pen;
-    pen.setWidth(4);
-    pen.setColor(m_task.bgColor.darker(130));
-    painter->setPen(pen);
-    painter->setBrush(m_task.bgColor);
-    painter->drawRoundRect(m_rect.adjusted(m_border,m_border, -m_border,-m_border), 25, 25 );
-    
-    pen.setColor(m_task.fgColor);
-    painter->setPen(pen);
+    QTime t;
+    t.start();
+    if (m_cachedPixmap.isNull() || m_cachedPixmapB.isNull()) {
 
-    if (!m_image && m_text && !m_text->isVisible()) {
-        QFont f = painter->font();
-        QFontMetricsF metrix(f);
-        f.setPixelSize( m_rect.width() /  m_task.title.count() );
-        painter->setFont(f);
-        painter->drawText(m_rect, Qt::AlignCenter, m_task.title);
+        // image
+        QPixmap ic (m_task.icon);
+        if (!ic.isNull()) {
+            ic = ic.scaled(m_mask->width()-14, m_mask->height()-14, Qt::KeepAspectRatio);
+            QRect r = ic.rect();
+            r.moveTopLeft(QPoint((m_mask->width() - ic.width())/2, (m_mask->height()-ic.height())/2));
+            ic.setMask(m_mask->copy(r));
+        }
+
+        // basic shape
+        QPixmap basicShape = QPixmap(QSize(m_rect.width(), m_rect.height()));
+        {
+            QPainter p(&basicShape);
+            basicShape.fill(Qt::transparent);
+            QPen pen;
+            pen.setWidth(4);
+            pen.setColor(m_task.bgColor.darker(130));
+            p.setPen(pen);
+            p.setBrush(m_task.bgColor);
+            p.drawRoundRect(m_rect.adjusted(m_border,m_border, -m_border,-m_border), 25, 25 );
+
+            pen.setColor(m_task.fgColor);
+            p.setPen(pen);
+        }
+	
+	
+        if (m_cachedPixmap.isNull()) {
+            m_cachedPixmap = basicShape;
+            QPainter p(&m_cachedPixmap);
+            if (!ic.isNull()) {
+                p.drawPixmap((m_rect.width() - ic.width())/2, (m_rect.height() - ic.height())/2, ic);
+            } else if ( m_text && !m_sideB) {
+                QFont f = p.font();
+                QFontMetricsF metrix(f);
+                f.setPixelSize( m_rect.width() /  m_task.title.count() );
+                p.setFont(f);
+                p.drawText(m_rect, Qt::AlignCenter, m_task.title);
+            }
+        }
+		
+	
+        if (m_cachedPixmapB.isNull()) {
+            m_cachedPixmapB = basicShape;
+            QPainter p(&m_cachedPixmapB);
+            QPen pen;
+            pen.setColor(m_task.fgColor);
+            p.setPen(pen);
+
+            p.drawPixmap(QPoint(25, m_rect.height() - 120), ic.scaled(100, 100, Qt::KeepAspectRatio));
+
+            QTransform t;
+            t.translate( m_rect.width() -10 , 10);
+            t.rotate( -180 , Qt::YAxis);
+            p.setTransform(t);
+            m_text->drawContents(&p);
+        }
     }
-
+	
+    painter->save();
+    QRectF exposed = option->exposedRect.adjusted(-1,-1,1,1);
+    exposed &= QRectF(0,0, m_cachedPixmap.width(), m_cachedPixmap.height());
+    if (m_sideB) 
+        painter->drawPixmap(exposed, m_cachedPixmapB, exposed);
+    else
+        painter->drawPixmap(exposed, m_cachedPixmap, exposed);
     painter->restore();
+
+
 }
 
 //END SakWidget <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -624,10 +692,10 @@ void SakWidget::paint ( QPainter * painter, const QStyleOptionGraphicsItem *, QW
 //BEGIN Sak >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 Sak::Sak(QObject* parent)
-: QObject(parent)
-, m_timerId(0)
-, m_timeoutPopup(0)
-, m_settings(0)
+    : QObject(parent)
+        , m_timerId(0)
+        , m_timeoutPopup(0)
+                , m_settings(0)
 {
 
     m_backupper = new Backupper;
@@ -644,8 +712,8 @@ Sak::Sak(QObject* parent)
     if (QCoreApplication::arguments().contains("--clear")) {
         QHash<QString, Task>::iterator itr = m_tasks.begin();
         while(itr != m_tasks.end()) {
-           itr->hits.clear();
-           itr++;
+            itr->hits.clear();
+            itr++;
         }
     }
 
@@ -701,18 +769,20 @@ Sak::Sak(QObject* parent)
     m_view = new GView;
     m_view->setScene(new QGraphicsScene);
     m_view->scene()->setSceneRect(QDesktopWidget().geometry());
-    //QPalette pal;
-    //pal.setColor(QPalette::Window, QColor(0,0,0,200));
-    //pal.setColor(QPalette::Base, QColor(0,0,0,200));
-    //pal.setColor(QPalette::Background, QColor(0,0,0,200));
-    //m_view->setPalette(pal);
-    //m_view->viewport()->setPalette(pal);
+
+//    QPalette pal;
+//    pal.setColor(QPalette::Window, Qt::yellow);
+//    pal.setColor(QPalette::Base,  Qt::yellow);
+//    pal.setColor(QPalette::Background,  Qt::yellow);
+//    m_view->setPalette(pal);
+//    m_view->viewport()->setPalette(pal);
+
     m_view->setFrameStyle(QFrame::NoFrame);
     m_view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_view->installEventFilter(this);
-    m_view->setWindowFlags(m_view->windowFlags() | Qt::WindowStaysOnTopHint );
-    m_view->setWindowModality(Qt::ApplicationModal);
+    m_view->setWindowFlags(m_view->windowFlags() | Qt::WindowStaysOnTopHint | Qt::ToolTip );
+    //m_view->setWindowModality(Qt::ApplicationModal);
     m_view->setAttribute(Qt::WA_QuitOnClose, false);
     m_view->setWindowIcon( QIcon(":/images/icon.png") );
     m_view->setWindowTitle("SaK - Sistema Anti Kazzeggio");
@@ -799,16 +869,16 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
         if (trayIcon->isVisible()) {
             QMessageBox::information(m_settings, tr("Systray"),
                                      tr("The program will keep running in the "
-                                        "system tray. To terminate the program, "
-                                        "choose <b>Quit</b> in the context menu "
-                                        "of the system tray entry."));
+                                             "system tray. To terminate the program, "
+                                             "choose <b>Quit</b> in the context menu "
+                                             "of the system tray entry."));
             m_settings->hide();
             e->ignore();
             return true;
         }
     } else if (obj == m_view && e->type() == QEvent::KeyPress) {
         QKeyEvent* ke = dynamic_cast<QKeyEvent*>(e);
-        if (ke->modifiers() & ( Qt::AltModifier + Qt::ControlModifier) ) {
+        if ((ke->modifiers() & Qt::AltModifier) && (ke->modifiers() &  Qt::ControlModifier) ) {
             clearView();
 
             return true;
@@ -1209,13 +1279,15 @@ QRect Layouting( const QList<SakWidget*>& sortedWidgets)
 
 void Sak::popup()
 {
+#if 0
 #ifdef Q_OS_LINUX
     // fix interaction with yakuake
     QPushButton* focusCatcher = new QPushButton("Polling...", 0);
     focusCatcher->show();
-    focusCatcher->move(-1000,-1000);
-    //focusCatcher->setWindowFlags(focusCatcher->windowFlags() | Qt::FramelessWindowHint);
+    //focusCatcher->move(-1000,-1000);
+    focusCatcher->setWindowFlags(focusCatcher->windowFlags() | Qt::FramelessWindowHint);
     QMetaObject::invokeMethod(focusCatcher, "deleteLater", Qt::QueuedConnection);
+#endif
 #endif
     if (sender() == previewButton) {
         m_previewing = true;
@@ -1277,7 +1349,10 @@ void Sak::popup()
     m_view->scene()->addItem(sakMessage);
     sakMessage->show();
 
-    m_view->showFullScreen();
+
+//    m_view->showFullScreen();
+    m_view->setGeometry( qApp->desktop()->screenGeometry() );
+	m_view->show();
     m_view->raise();
     m_view->setFocus();
     m_view->grabKeyboard();
