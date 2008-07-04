@@ -44,6 +44,7 @@ public slots:
 protected slots:
     // tasks
     void addDefaultTask();
+    void exportHits();
     void populateTasks();
     void saveHitChanges();
     void selectedTask();
@@ -78,6 +79,7 @@ private:
 
     QMenu* m_addHitMenu;
     QAction* m_addHitAction;
+    QAction* m_exportDataAction;
     QString currentTask;
     class GView* m_view;
     class Backupper* m_backupper;

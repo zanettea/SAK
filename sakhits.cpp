@@ -129,6 +129,27 @@ void Sak::addDefaultHit()
     i->setData(1, Qt::UserRole, qVariantFromValue(Hit(&m_editedTasks[i->text(1)], p.first, p.second)));
 }
 
+void Sak::exportHits()
+{
+    QString fileName = QFileDialog::getSaveFileName();
+    QFile file(fileName);
+    if (!file.open(QIODevice::Truncate|QIODevice::ReadWrite)) {
+        QMessageBox::warning(0, QString("Error saving"), QString("Error opening file %1").arg(fileName));
+        return;
+    }
+    QTextStream stream(&file);
+    for (int i=0; i<hitsList->topLevelItemCount(); i++) {
+        QTreeWidgetItem* w = hitsList->topLevelItem ( i );
+        QString name(w->text(1));
+        QDateTime timestamp(QDateTime::fromString(w->text(0), DATETIMEFORMAT));
+        quint8 duration = w->text(2).toInt();
+        QHash<QString, Task>::iterator titr = m_tasks.find(name);
+        stream << w->text(1) << ";" << w->text(0)  << ";" << w->text(2) << ";" << w->text(3) << ";\n";
+    }
+    file.flush();
+    file.close();
+}
+
 
 QList<Hit> Sak::createHitsList(const QDateTime& from , const QDateTime& to )
 {

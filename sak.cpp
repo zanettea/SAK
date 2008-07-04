@@ -59,6 +59,7 @@ Sak::Sak(QObject* parent)
     , m_timerId(0)
     , m_timeoutPopup(0)
     , m_settings(0)
+    , m_changedHit(false)
 {
 
     m_backupper = new Backupper;
@@ -128,6 +129,11 @@ Sak::Sak(QObject* parent)
     m_addHitAction->setText("Add hit");
     m_addHitMenu->addAction(m_addHitAction);
     connect(m_addHitAction, SIGNAL(triggered()), this, SLOT(addDefaultHit()));
+
+    m_exportDataAction = new QAction("Export data", this);
+    m_exportDataAction->setText("Export data");
+    m_addHitMenu->addAction(m_exportDataAction);
+    connect(m_exportDataAction, SIGNAL(triggered()), this, SLOT(exportHits()));
 
     populateHitsList(hitsList, createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
     selectedTask();
