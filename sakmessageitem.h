@@ -3,7 +3,7 @@
 
 #include <QtGui>
 
-class SakMessageItem : public QGraphicsItem
+class SakMessageItem : public QObject, public QGraphicsItem
 {
 public:
     SakMessageItem(const QString& message);

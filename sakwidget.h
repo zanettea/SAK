@@ -41,7 +41,8 @@ private:
     QPalette m_palette;
     Task m_task;
     QString m_tooltipText;
-    
+
+    void drawBasicShape(QPixmap& p);
     void paint ( QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = 0 );
     QRectF m_rect, m_boundingRect;
     static QBitmap* m_mask;
@@ -50,8 +51,10 @@ private:
     QTextDocument* m_text;
     QPixmap m_cachedPixmap;
     QPixmap m_cachedPixmapB;
+    QPixmap m_ic;
+    bool m_redrawCachedPixmap, m_redrawCachedPixmapB;
+    void redrawPixmaps();
     int m_flipTimer;
-    int m_showDetailsTimer;
     // is painting side B??
     bool m_sideB;
     // is animating??

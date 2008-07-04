@@ -40,6 +40,20 @@ SakWidget::SakWidget(const Task& task)
     m_text->setHtml(m_tooltipText);
     m_text->setTextWidth(m_rect.width() - 20);
 
+    m_cachedPixmap = QPixmap(QSize((int)m_rect.width(), (int)m_rect.height()));
+    m_cachedPixmapB = QPixmap(QSize((int)m_rect.width(), (int)m_rect.height()));
+
+
+    m_ic  = QPixmap(m_task.icon);
+    if (!m_ic.isNull()) {
+        m_ic = m_ic.scaled(m_mask->width()-14, m_mask->height()-14, Qt::KeepAspectRatio);
+        QRect r = m_ic.rect();
+        r.moveTopLeft(QPoint((m_mask->width() - m_ic.width())/2, (m_mask->height()-m_ic.height())/2));
+        m_ic.setMask(m_mask->copy(r));
+    }
+    m_redrawCachedPixmap=true;
+    m_redrawCachedPixmapB=true;
+    redrawPixmaps();
 };
 
 
@@ -53,7 +67,7 @@ void SakWidget::setStatistics(double dailyWorked, double weeklyWorked, double mo
     m_monthlyPercentage = monthlyPercentage;
     m_tooltipText = QString("<center><h1>%1</h1></center>%2%3<div>Today: <b>%4</b> h (%5%)<br />Last week: <b>%6</b> h (%7%)<br />Last month: <b>%8</b> h (%9%)</div>").arg(m_task.title).arg(m_task.description.isEmpty() ? "" : "<p>").arg(m_task.description).arg(m_dailyWorked).arg(m_dailyPercentage, 0, 'f', 2).arg(m_weeklyWorked).arg(m_weeklyPercentage, 0, 'f', 2).arg(m_monthlyWorked).arg(m_monthlyPercentage, 0, 'f', 2);
     m_text->setHtml(m_tooltipText);
-    m_cachedPixmapB = QPixmap();
+    m_redrawCachedPixmapB=true;
 }
 
 #define ITERATIONS 5
@@ -68,7 +82,7 @@ void SakWidget::timerEvent(QTimerEvent* e)
             t.scale( newScale, newScale );
             setTransform(t);
             setPos( m_position + m_animItr * ( scene()->sceneRect().center() - m_rect.center() - m_position ) / 2/ ITERATIONS );
-            if (m_animItr == ITERATIONS + 1) {
+            if (m_animItr == ITERATIONS+1) {
                 m_sideB = true;
             } else if (m_animItr >= 2*ITERATIONS ) {
                 killTimer(m_flipTimer);
@@ -83,7 +97,7 @@ void SakWidget::timerEvent(QTimerEvent* e)
             t.scale(newScale, newScale);
             setTransform(t);
             setPos( scene()->sceneRect().center() - m_rect.center() + m_animItr * ( m_position - scene()->sceneRect().center() + m_rect.center()) / 2/ ITERATIONS );
-            if (m_animItr == ITERATIONS + 1) {
+            if (m_animItr == ITERATIONS+1) {
                 m_sideB = false;
             } else if (m_animItr >= 2*ITERATIONS ) {
                 killTimer(m_flipTimer);
@@ -121,7 +135,8 @@ void SakWidget::setGeometry(const QRect& geom) {
     t.setMatrix(m_scale, t.m12(), t.m13(), t.m21(), m_scale, t.m23(), t.m31(), t.m32(), t.m33());
     setTransform(t);
 
-    m_cachedPixmap = m_cachedPixmapB = QPixmap();
+    m_redrawCachedPixmap = m_redrawCachedPixmapB = true;
+    redrawPixmaps();
 }
 
 
@@ -157,69 +172,27 @@ void SakWidget::mouseMoveEvent(QGraphicsSceneMouseEvent* e)
     }
 }
 
+void SakWidget::drawBasicShape(QPixmap& basicShape)
+{
+    basicShape.fill(QColor(0,0,0,0));
+    QPainter p(&basicShape);
+    QPen pen;
+    pen.setWidth(4);
+    pen.setColor(m_task.bgColor.darker(130));
+    p.setPen(pen);
+    p.setBrush(m_task.bgColor);
+    p.drawRoundRect(m_rect.adjusted(m_border,m_border, -m_border,-m_border), 25, 25 );
+
+    pen.setColor(m_task.fgColor);
+    p.setPen(pen);
+}
+
 void SakWidget::paint ( QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget *)
 {
     QTime t;
     t.start();
-    if (m_cachedPixmap.isNull() || m_cachedPixmapB.isNull()) {
 
-        // image
-        QPixmap ic (m_task.icon);
-        if (!ic.isNull()) {
-            ic = ic.scaled(m_mask->width()-14, m_mask->height()-14, Qt::KeepAspectRatio);
-            QRect r = ic.rect();
-            r.moveTopLeft(QPoint((m_mask->width() - ic.width())/2, (m_mask->height()-ic.height())/2));
-            ic.setMask(m_mask->copy(r));
-        }
-
-        // basic shape
-        QPixmap basicShape = QPixmap(QSize((int)m_rect.width(), (int)m_rect.height()));
-        {
-            QPainter p(&basicShape);
-            basicShape.fill(Qt::transparent);
-            QPen pen;
-            pen.setWidth(4);
-            pen.setColor(m_task.bgColor.darker(130));
-            p.setPen(pen);
-            p.setBrush(m_task.bgColor);
-            p.drawRoundRect(m_rect.adjusted(m_border,m_border, -m_border,-m_border), 25, 25 );
-
-            pen.setColor(m_task.fgColor);
-            p.setPen(pen);
-        }
-
-
-        if (m_cachedPixmap.isNull()) {
-            m_cachedPixmap = basicShape;
-            QPainter p(&m_cachedPixmap);
-            if (!ic.isNull()) {
-                p.drawPixmap((int)(m_rect.width() - ic.width())/2, (int)(m_rect.height() - ic.height())/2, ic);
-            } else if ( m_text && !m_sideB) {
-                QFont f = p.font();
-                QFontMetricsF metrix(f);
-                f.setPixelSize( (int)m_rect.width() /  m_task.title.count() );
-                p.setFont(f);
-                p.drawText(m_rect, Qt::AlignCenter, m_task.title);
-            }
-        }
-
-
-        if (m_cachedPixmapB.isNull()) {
-            m_cachedPixmapB = basicShape;
-            QPainter p(&m_cachedPixmapB);
-            QPen pen;
-            pen.setColor(m_task.fgColor);
-            p.setPen(pen);
-
-            p.drawPixmap(QPoint(25, (int)m_rect.height() - 120), ic.scaled(100, 100, Qt::KeepAspectRatio));
-
-            QTransform t;
-            t.translate( m_rect.width() -10 , 10);
-            t.rotate( -180 , Qt::YAxis);
-            p.setTransform(t);
-            m_text->drawContents(&p);
-        }
-    }
+    redrawPixmaps();
 
     painter->save();
     QRectF exposed = option->exposedRect.adjusted(-1,-1,1,1);
@@ -229,7 +202,39 @@ void SakWidget::paint ( QPainter * painter, const QStyleOptionGraphicsItem * opt
     else
         painter->drawPixmap(exposed, m_cachedPixmap, exposed);
     painter->restore();
-
-
 }
 
+
+void SakWidget::redrawPixmaps() {
+    if (m_redrawCachedPixmap) {
+        drawBasicShape(m_cachedPixmap);
+        QPainter p(&m_cachedPixmap);
+        if (!m_ic.isNull()) {
+            p.drawPixmap((int)(m_rect.width() - m_ic.width())/2, (int)(m_rect.height() - m_ic.height())/2, m_ic);
+        } else if ( m_text && !m_sideB) {
+            QFont f = p.font();
+            QFontMetricsF metrix(f);
+            f.setPixelSize( (int)m_rect.width() /  m_task.title.count() );
+            p.setFont(f);
+            p.drawText(m_rect, Qt::AlignCenter, m_task.title);
+        }
+        m_redrawCachedPixmap = false;
+    }
+    
+    if (m_redrawCachedPixmapB) {
+        drawBasicShape(m_cachedPixmapB);
+        QPainter p(&m_cachedPixmapB);
+        QPen pen;
+        pen.setColor(m_task.fgColor);
+        p.setPen(pen);
+        if (!m_ic.isNull()) {
+            p.drawPixmap(QPoint(25, (int)m_rect.height() - 120), m_ic.scaled(100, 100, Qt::KeepAspectRatio));
+        }
+        QTransform t;
+        t.translate( m_rect.width() -10 , 10);
+        t.rotate( -180 , Qt::YAxis);
+        p.setTransform(t);
+        m_text->drawContents(&p);
+        m_redrawCachedPixmapB = false;
+    }
+}

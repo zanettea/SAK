@@ -39,9 +39,11 @@ class MyGL : public QGLWidget
 class GView : public QGraphicsView
 {
     public:
-        GView() { if (QGLFormat::hasOpenGL()) { qDebug() << "Using OpenGL"; 
-            //setViewport(new MyGL); 
-        }
+        GView() { 
+            if (QGLFormat::hasOpenGL()) { 
+                qDebug() << "Using OpenGL";
+                setViewport(new MyGL);
+            }
         }
         void drawBackground(QPainter* p, const QRectF & rect) {
             QBrush brush(QColor(0,0,0,200));

@@ -105,7 +105,7 @@ double Hit::overestimations(const QList<Hit>& hits, QVector<double>& overestimat
     for (int i=count; i>=0; i--) {
         if (sortedList[i].timestamp > t) {
             overestimation[i] = ( sortedList[i].timestamp.toTime_t() - t.toTime_t() ) / 60;
-            qWarning() << "SAK: inconsistency in task " << sortedList[i].task->title << ": " << sortedList[i].timestamp << " > " << t;
+            //qWarning() << "SAK: inconsistency in task " << sortedList[i].task->title << ": " << sortedList[i].timestamp << " > " << t;
             totHours = -1;
             return totHours;
         } else {
@@ -121,7 +121,7 @@ double Hit::overestimations(const QList<Hit>& hits, QVector<double>& overestimat
                     overestimation[i+1] = ceil(-diff/120);
                     overestimation[i] = ceil(-diff/120);
                 }
-                qDebug() << "SAK: task " << sortedList[i].task->title << ": overestimated time from hit " << sortedList[i].timestamp << " and hit " << t << ". Expected " << expected/60 << " minutes, got " << got/60 << " (diff = " << diff/60 << ")";
+                //qDebug() << "SAK: task " << sortedList[i].task->title << ": overestimated time from hit " << sortedList[i].timestamp << " and hit " << t << ". Expected " << expected/60 << " minutes, got " << got/60 << " (diff = " << diff/60 << ")";
             }
             t=sortedList[i].timestamp;
         }

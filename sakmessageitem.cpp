@@ -39,7 +39,7 @@ void SakMessageItem::paint(QPainter * painter, const QStyleOptionGraphicsItem * 
 {
     if (m_cachedPixmap.isNull()) {
         m_cachedPixmap = QPixmap(QSize((int)m_rect.width(), (int)m_rect.height()));
-        m_cachedPixmap.fill(Qt::transparent);
+        m_cachedPixmap.fill(QColor(255,255,255,0));
         QPainter p(&m_cachedPixmap);
 
         int m_border=20;
