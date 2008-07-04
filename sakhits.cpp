@@ -251,7 +251,7 @@ void Sak::hitsListItemChanged(QTreeWidgetItem* i, int column)
             et.hits.takeAt(hitPosition);
             qDebug() << "insert hit into task " << i->text(1);
             Task& nt(m_editedTasks[i->text(1)]);
-            QPair<QDateTime,quint8> p( QDateTime::fromString(i->text(0), DATETIMEFORMAT), Task::value(i->text(2).toFloat()) );
+            QPair<QDateTime,quint8> p( QDateTime::fromString(i->text(0), DATETIMEFORMAT), Task::value(i->text(2).toFloat()/60.0) );
             i->setData(1, Qt::UserRole, qVariantFromValue(Hit(&nt, p.first, p.second)));
             nt.hits << p;
         } else if (column == -1) {
@@ -259,7 +259,7 @@ void Sak::hitsListItemChanged(QTreeWidgetItem* i, int column)
             et.hits.takeAt(hitPosition);
         } else {
             qDebug() << "modify hit on task " << t.title;
-            et.hits[hitPosition] = QPair<QDateTime,quint8>( QDateTime::fromString(i->text(0), DATETIMEFORMAT), Task::value(i->text(2).toFloat()) );
+            et.hits[hitPosition] = QPair<QDateTime,quint8>( QDateTime::fromString(i->text(0), DATETIMEFORMAT), Task::value(i->text(2).toFloat()/60.0) );
             i->setData(1, Qt::UserRole, qVariantFromValue(Hit(&et, et.hits[hitPosition].first, et.hits[hitPosition].second)));
         }
     }
