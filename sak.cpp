@@ -7,279 +7,9 @@
 #include <QSettings>
 
 #include "sak.h"
-
-const char BACKUPDATEFORMAT [] = "ddMMyyyyhhmmss";
-
-class Backupper
-{
-public:
-    static const int m_nCyclicBackups = 10;
-    static const char  m_format [14];
-    QMap<QDateTime, QString> m_cyclicBackups;
-    QMap<QDateTime, QString> m_regularBackups;
-    QDir m_dir;
-    Backupper() {
-        // search for backup dir
-        QString path = QFileInfo(QSettings("ZanzaSoft", "SAK").fileName()).path() + QDir::separator() + "sakbcks";
-        m_dir =QDir(path);
-        m_dir.mkpath(path);
-        m_dir.cd(path);
-        QStringList list =  m_dir.entryList();
-        foreach(QString s, list) {
-            QString fullSuffix = QFileInfo(s).completeSuffix();
-            if (fullSuffix.count() == 19 && fullSuffix[14]=='.' && fullSuffix.mid(15) == "cbck") {
-                QDateTime time = QDateTime::fromString(fullSuffix.left(14), BACKUPDATEFORMAT);
-                //qDebug() << "SAK: found cyclic backup " << s << " on date " << time;
-                m_cyclicBackups[time]= s;
-            } else if (fullSuffix.count() == 18 && fullSuffix[14]=='.' && fullSuffix.mid(15) == "bck") {
-                QDateTime time = QDateTime::fromString(fullSuffix.left(14), BACKUPDATEFORMAT);
-                //qDebug() << "SAK: found regular backup " << s << " on date " << time;
-                m_regularBackups[time]= s;
-            }
-        }
-    }
-    
-    void doCyclicBackup() {
-        QDateTime now = QDateTime::currentDateTime();
-        QString fileName = m_dir.filePath(QFileInfo(QSettings("ZanzaSoft", "SAK").fileName()).baseName() + "." + now.toString(BACKUPDATEFORMAT) + ".cbck");
-        QList<QDateTime> list = m_cyclicBackups.keys();
-        if (list.size() >= m_nCyclicBackups) {
-            int toBeRemoved = list.size() - m_cyclicBackups.count() + 1;
-            for(int i=0; i< toBeRemoved; i++) {
-                const QDateTime& d = list[i];
-                qWarning() << "SAK: remove old circular backup file " << m_cyclicBackups[d];
-                QFile(m_dir.filePath(m_cyclicBackups[d])).remove();
-                m_cyclicBackups.remove(d);
-            }
-        }
-        if (!QFile(QSettings("ZanzaSoft", "SAK").fileName()).copy(fileName)) {
-            qWarning() << "SAK: failed to copy " << QSettings("ZanzaSoft", "SAK").fileName() << " to cyclic backup file " <<  fileName;
-        } else {
-            qWarning() << "SAK: backup to " << fileName;
-        }
-    };
-    void doBackup() {
-        QDateTime now = QDateTime::currentDateTime();
-        QString fileName = m_dir.filePath(QFileInfo(QSettings("ZanzaSoft", "SAK").fileName()).baseName() + "." + now.toString(BACKUPDATEFORMAT) + ".bck");
-        qDebug() << m_cyclicBackups;
-        if (!QFile(QSettings("ZanzaSoft", "SAK").fileName()).copy(fileName)) {
-            qWarning() << "SAK: failed to copy " << QSettings("ZanzaSoft", "SAK").fileName() << " to backup file " <<  fileName;
-        }  else {
-            qWarning() << "SAK: backup to " << fileName;
-        }
-    }
-};
+#include "backupper.h"
 
 
-class PieChart : public QGraphicsItem
-{
-    public:
-        void setLimits(double min, double max) {m_min=min; m_max=max;};
-        QRectF boundingRect() const { return QRectF(-0.61,-0.6,1.2,1.2);}
-        virtual void paint ( QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget ) {
-            painter->save();
-            QHash<double, QPair<double,QColor> >::const_iterator itr = m_hits.begin(), end=m_hits.end();
-            while(itr != end) {
-                double start = itr.key();
-                Q_ASSERT(start > m_min && start < m_max);
-                double startAngle = (start - m_min) / (m_max - m_min) * 16 * 360;
-                double spanAngle = itr.value().first / (m_max - m_min) * 16 * 360;
-                QPainterPath p;
-                p.moveTo(0,0);
-                p.arcTo(QRectF(0,0,1,1), spanAngle + startAngle, spanAngle);
-                painter->setBrush(itr.value().second);
-                painter->setPen(Qt::NoPen);
-                painter->drawPath(p);
-                itr++;
-            }
-            painter->restore();
-        }
-    protected:
-        QHash<double, QPair<double,QColor> > m_hits;
-        double m_min;
-        double m_max;
-};
-
-class Incremental
-{
-public:
-    QMap<QDateTime, QPair<QString, quint8> > foundPieces;
-    QMap<QDateTime, QPair<QString, quint8> > addedPieces;
-    QDateTime lastTimeStamp;
-    QList<QString> addedFiles;
-    QDir m_dir;
-    Incremental() {
-        // search for backup dir
-        QString path = QFileInfo(QSettings("ZanzaSoft", "SAK").fileName()).path() + QDir::separator() + "sakincr";
-        m_dir =QDir(path);
-        m_dir.mkpath(path);
-        m_dir.cd(path);
-        QStringList list =  m_dir.entryList();
-        foreach(QString s, list) {
-            QString fullSuffix = QFileInfo(s).completeSuffix();
-            QString task = QFileInfo(s).baseName();
-            if (fullSuffix.count() == 19 && fullSuffix[14]=='.' && fullSuffix.mid(15) == "incr") {
-                QDateTime time = QDateTime::fromString(fullSuffix.left(14), BACKUPDATEFORMAT);
-                QFile (s);
-                s.open(QIODevice::ReadOnly);
-                QDataStream stream(&s);
-                stream.setVersion(QDataStream::Qt_4_3);
-                QPair<QString, quint8>& p = foundPieces[time];
-                p.first = task;
-                stream >> p.second;
-                qDebug() << "SAK: found piece from task " << task << " timestamp " << time << " duration " << Task::hours(p.second) <<  " hours";
-            }
-        }
-        lastTimeStamp = QDateTime::currentDateTime();
-    }
-    void addPiece(const QString& task, const QDateTime& now, quint8 value) {
-        QString filename= m_dir.filePath(task + "." + now.toString(BACKUPDATEFORMAT) + ".incr");
-        addedFiles << filename;
-        QFile f(filename);
-        f.open(QIODevice::ReadWrite);
-        QDataStream stream(&f);
-        stream.setVersion(QDataStream::Qt_4_3);
-        stream << value;
-        qDebug() << "SAK: write piece of task " << task << " of duration " << Task::hours(value) << " in file " << filename;
-        addedPieces[now] = QPair<QString, quint8>(task, value);
-        lastTimeStamp = now;
-    }
-    void clearAddedPieces() {
-        foreach(const QString& file, addedFiles) {
-            QFile::remove(file);
-        }
-    }
-};
-
-
-//END: increamental
-
-
-//BEGIN: date delagate
-class MyDateItemDelegate : public QItemDelegate
-{
-public:
-    MyDateItemDelegate(QObject *parent = 0);
-
-    QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option,
-                          const QModelIndex &index) const;
-
-    void setEditorData(QWidget *editor, const QModelIndex &index) const;
-    void setModelData(QWidget *editor, QAbstractItemModel *model,
-                      const QModelIndex &index) const;
-
-    void updateEditorGeometry(QWidget *editor,
-                              const QStyleOptionViewItem &option, const QModelIndex &index) const;
-};
-
-MyDateItemDelegate::MyDateItemDelegate(QObject *parent)
-: QItemDelegate(parent)
-{
-}
-
-QWidget *MyDateItemDelegate::createEditor(QWidget *parent,
-                                       const QStyleOptionViewItem &/* option */,
-                                       const QModelIndex &/* index */) const
-{
-    QDateTimeEdit *editor = new QDateTimeEdit(parent);
-    editor->setCalendarPopup(true);
-    editor->setDateTime(QDateTime::currentDateTime());
-    return editor;
-}
-
-void MyDateItemDelegate::setEditorData(QWidget *editor,
-                                    const QModelIndex &index) const
-{
-    const QDateTime& value = index.model()->data(index, Qt::DisplayRole).toDateTime();
-    
-    QDateTimeEdit *e = static_cast<QDateTimeEdit*>(editor);
-    e->setDateTime(value);
-}
-
-void MyDateItemDelegate::setModelData(QWidget *editor, QAbstractItemModel *model,
-                                   const QModelIndex &index) const
-{
-    QDateTimeEdit *e = static_cast<QDateTimeEdit*>(editor);
-    e->interpretText();
-    const QDateTime& value = e->dateTime();
-    
-    model->setData(index, value.toString(), Qt::EditRole);
-}
-
-void MyDateItemDelegate::updateEditorGeometry(QWidget *editor,
-                                           const QStyleOptionViewItem &option, const QModelIndex &/* index */) const
-{
-    editor->setGeometry(option.rect);
-}
-
-//END: date delegate
-
-QDataStream & operator<< ( QDataStream & out, const Task & task )
-{
-    out << task.title;
-    out << task.description;
-    out << task.icon;
-    out << task.bgColor;
-    out << task.fgColor;
-    out << task.hits;
-    return out;
-}
-
-QDataStream & operator>> ( QDataStream & in, Task & task )
-{
-    in >> task.title;
-    in >> task.description;
-    in >> task.icon;
-    in >> task.bgColor;
-    in >> task.fgColor;
-    in >> task.hits;
-    return in;
-}
-
-double Task::workedHours(const QDateTime& from, const QDateTime& to) const
-{
-    double worked = 0;
-    for(int i=hits.count()-1; i>=0; i--) {
-        const QPair<QDateTime, quint8>& hit = hits[i];
-        if ( hit.first < from) return worked;
-        if ( hits[i].first > to ) continue;
-        else {
-            worked += hours(hit.second); // multiple of quarter of hour
-        }
-    }
-    return worked;
-}
-
-bool Task::checkConsistency()
-{
-    totHours = 0;
-    QDateTime t = QDateTime::currentDateTime();
-    int lastdt=0;
-    totOverestimation=0;
-    for (int i=hits.count()-1; i>=0; i--) {
-        if (hits[i].first > t) {
-            qWarning() << "SAK: inconsistency in task " << title << ": " << hits[i].first << " > " << t;
-            totHours = -1;
-            return false;
-        } else {
-            totHours += hours(hits[i].second);
-            qint64 expected = (t.toTime_t() - hits[i].first.toTime_t());
-            qint64 got = (hours(hits[i].second)+hours(lastdt))*3600/2; //seconds
-            qint64 diff = expected - got;
-            if (diff < 0)
-                totOverestimation -= diff;
-            if (diff < -59) {
-                qDebug() << "SAK: task " << title << ": overestimated time from hit " << hits[i].first << " and hit " << t << ". Expected " << expected/60 << " minutes, got " << got/60 << " (diff = " << diff/60 << ")";
-            }
-            t=hits[i].first;
-        }
-    }
-    if (totOverestimation > 60) {
-        totOverestimation /= 3600.0;
-        qDebug() << "SAK: task " << title << " total overestimation of " << totOverestimation << " hours ";
-    }
-    return true;
-}
 
 //END Task <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -287,7 +17,7 @@ bool Task::checkConsistency()
 // GView
 #include <QtOpenGL>
 
-                 class MyGL : public QGLWidget
+class MyGL : public QGLWidget
 {
     public:
         MyGL() {}
@@ -310,8 +40,8 @@ class GView : public QGraphicsView
 {
     public:
         GView() { if (QGLFormat::hasOpenGL()) { qDebug() << "Using OpenGL"; 
-	setViewport(new MyGL); 
-        } 
+            //setViewport(new MyGL); 
+        }
         }
         void drawBackground(QPainter* p, const QRectF & rect) {
             QBrush brush(QColor(0,0,0,200));
@@ -320,382 +50,15 @@ class GView : public QGraphicsView
         }
 };
 
-//
-
-//BEGIN PixmapViewer >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-void PixmapViewer::paintEvent(QPaintEvent* )
-{
-    QPainter p(this);
-    QSize s = size();
-    if (m_p.isNull()) {
-        int edge = qMin(s.width(), s.height()) - 4;
-        int offx = (s.width() - edge) / 2;
-        int offy = (s.height() - edge) / 2;
-        QRect r(offx, offy, edge, edge);
-        p.fillRect(r, Qt::white);
-        p.drawLine(edge + offx, offy, offx, offy+edge);
-        p.drawLine(offx, offy, offx+edge, offy+edge);
-        p.drawRect(r);
-    } else {
-        double ratiox = (double)s.width()/(double)m_p.width();
-        double ratioy = (double)s.height()/(double)m_p.height();
-        double ratio = qMin(ratiox, ratioy);
-        int w = ratio*m_p.width();
-        int h = ratio*m_p.height();
-        int offx = (s.width() - w)/2;
-        int offy = (s.height() - h)/2;
-        QRect r(offx, offy, w, h);
-        p.drawPixmap(r, m_p);
-    }
-}
 
 
-void PixmapViewer::mousePressEvent(QMouseEvent* e)
-{
-    if (e->buttons()) {
-        QString file = QFileDialog::getOpenFileName(0, "Select an image");
-        QPixmap tmp;
-        if (!file.isEmpty()) {
-            if (tmp.load ( file ) ) {
-                setPixmap(tmp);
-            } else {
-                QMessageBox::warning(0, "Failure loading image", QString("Failed load image file %1").arg(file));
-            }
-        }
-    }
-}
-
-//END PixmapViewer <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-//BEGIN SakMessageItem <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-SakMessageItem::SakMessageItem(const QString& message) : QGraphicsItem(0) {
-    m_rect = QRectF(QPointF(0, 0), QSizeF(800, 200));
-
-    setAcceptsHoverEvents(true);
-    QPixmap p(":/images/whip.png");
-    p = p.scaled(200, 600, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    m_p=new QGraphicsPixmapItem(p,this);
-    m_p->setPos(0,0);
-
-    m_t = new QTextDocument;
-    m_t->setHtml(message);
-    m_t->setTextWidth(520);
-
-    setZValue(-1);
-    //setFlag(ItemIsMovable, true);
-    //setFlag(ItemIsSelectable, true);
-}
-
-SakMessageItem::~SakMessageItem()
-{
-     delete m_t;
-}
-
-void SakMessageItem::setGeometry(const QRect& r) {
-    prepareGeometryChange();
-    double xratio = r.width() / 800.0;
-    double yratio = r.height() / 200.0;
-    double ratio = qMin(xratio, yratio);
-    QTransform t;
-    t.scale(ratio, ratio);
-    setTransform(t);
-    setPos( 0, 0 );
-    m_cachedPixmap  = QPixmap();
-}
-
-void SakMessageItem::paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * )
-{
-    if (m_cachedPixmap.isNull()) {
-        m_cachedPixmap = QPixmap(QSize(m_rect.width(), m_rect.height()));
-        m_cachedPixmap.fill(Qt::transparent);
-        QPainter p(&m_cachedPixmap);
-
-        int m_border=20;
-        QPen pen;
-        pen.setWidth(4);
-        pen.setColor(QColor(Qt::white).darker(150));
-        p.setPen(pen);
-        p.setBrush(Qt::white);
-
-        QPainterPath path;
-        int curve = 15;
-        qreal w = 200 + qMin(600.0, m_t->pageSize().width());
-        qreal h = qMax(80.0+m_border+curve, qMin(200.0, m_t->pageSize().height()+40));
-        path.moveTo(200 + m_border, 75);
-        path.lineTo(200, 75);
-        path.lineTo(200+m_border, 40);
-        path.lineTo(200+m_border, m_border + curve);
-        path.cubicTo(QPointF(200+m_border, m_border), QPointF(200+m_border, m_border), QPointF(200+m_border+curve, m_border));
-        path.lineTo(w-m_border-curve, m_border);
-        path.cubicTo(QPointF(w-m_border, m_border), QPointF(w-m_border, m_border), QPointF(w-m_border, m_border+curve));
-        path.lineTo(w-m_border, h-m_border-curve);
-        path.cubicTo(QPointF(w-m_border,h-m_border), QPointF(w-m_border,h-m_border), QPointF(w-m_border-curve,h-m_border));
-        path.lineTo(200+m_border+curve,h-m_border);
-        path.cubicTo(QPointF(200+m_border,h-m_border),QPointF(200+m_border,h-m_border),QPointF(200+m_border,h-m_border-curve));
-        path.closeSubpath();
-        p.drawPath(path);
-
-        p.translate(240,40);
-        m_t->drawContents(&p);
-    }
-
-    painter->save();
-    QRectF exposed = option->exposedRect.adjusted(-1,-1,1,1);
-    exposed &= QRectF(0,0, m_cachedPixmap.width(), m_cachedPixmap.height());
-    painter->drawPixmap(exposed, m_cachedPixmap, exposed);
-    painter->restore();
-
-}
-
-//END SakMessageItem >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-
-//BEGIN SakWidget <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-QBitmap* SakWidget::m_mask = 0;
-int SakWidget::m_maxzvalue = 0;
-
-SakWidget::SakWidget(const Task& task)
-{
-    m_task = task;
-
-    m_palette.setColor(QPalette::Window, task.bgColor);
-    m_palette.setColor(QPalette::WindowText, task.fgColor);
-
-    m_flipTimer = 0;
-    m_showingDetails=false;
-    m_sideB = false;
-    m_ismoving = false;
-
-    setAcceptsHoverEvents(false);
-    m_dailyWorked = m_weeklyWorked = m_dailyPercentage = m_weeklyPercentage = 0;
-
-    m_text = 0;
-    m_rect = QRectF(0,0,400,400);
-
-    m_border = 5;
-    if (m_mask == 0 ) {
-        m_mask = new QBitmap(QSize(400,400));
-        QPainter p(m_mask);
-        m_mask->fill(Qt::white);
-        QPen pen;
-        pen.setWidth(4);
-        pen.setColor(Qt::black);
-        p.setPen(pen);
-        p.setBrush(Qt::black);
-        int border = m_border + 4;
-        p.drawRoundRect(m_rect.adjusted(border,border, -border,-border), 25, 25 );
-    }
-
-    m_text = new QTextDocument(this);
-    m_text->setHtml(m_tooltipText);
-    m_text->setTextWidth(m_rect.width() - 20);
-
-};
-
-
-void SakWidget::setStatistics(double dailyWorked, double weeklyWorked, double monthlyWorked, double dailyPercentage, double weeklyPercentage, double monthlyPercentage)
-{
-    m_dailyWorked = dailyWorked;
-    m_weeklyWorked = weeklyWorked;
-    m_monthlyWorked = monthlyWorked;
-    m_dailyPercentage = dailyPercentage;
-    m_weeklyPercentage = weeklyPercentage;
-    m_monthlyPercentage = monthlyPercentage;
-    m_tooltipText = QString("<center><h1>%1</h1></center>%2%3<div>Today: <b>%4</b> h (%5%)<br />Last week: <b>%6</b> h (%7%)<br />Last month: <b>%8</b> h (%9%)</div>").arg(m_task.title).arg(m_task.description.isEmpty() ? "" : "<p>").arg(m_task.description).arg(m_dailyWorked).arg(m_dailyPercentage, 0, 'f', 2).arg(m_weeklyWorked).arg(m_weeklyPercentage, 0, 'f', 2).arg(m_monthlyWorked).arg(m_monthlyPercentage, 0, 'f', 2);
-    m_text->setHtml(m_tooltipText);
-    m_cachedPixmapB = QPixmap();
-}
-
-#define ITERATIONS 5
-void SakWidget::timerEvent(QTimerEvent* e)
-{
-    if (e->timerId() == m_flipTimer) {
-        if (m_showingDetails ==  true) {
-            QTransform t;
-            t.translate( m_animItr * (m_rect.width() / 2 / ITERATIONS), 0);
-            t.rotate( - m_animItr * 90.0 / ITERATIONS, Qt::YAxis);
-            double newScale = m_scale + m_animItr * (qMax(1.0, m_scale) - m_scale) / 2 / ITERATIONS;
-            t.scale( newScale, newScale );
-            setTransform(t);
-            setPos( m_position + m_animItr * ( scene()->sceneRect().center() - m_rect.center() - m_position ) / 2/ ITERATIONS );
-            if (m_animItr == ITERATIONS + 1) {
-                m_sideB = true;
-            } else if (m_animItr >= 2*ITERATIONS ) {
-                killTimer(m_flipTimer);
-                m_animItr=0;
-            }
-            m_animItr += 1;
-        } else {
-            QTransform t;
-            t.translate( m_rect.width() -  m_animItr * (m_rect.width() / 2 / ITERATIONS), 0);
-            t.rotate( - 180 - m_animItr * 90.0 / ITERATIONS, Qt::YAxis);
-            double newScale = qMax(1.0, m_scale) + m_animItr * (m_scale - qMax(1.0, m_scale)) / 2 / ITERATIONS;
-            t.scale(newScale, newScale);
-            setTransform(t);
-            setPos( scene()->sceneRect().center() - m_rect.center() + m_animItr * ( m_position - scene()->sceneRect().center() + m_rect.center()) / 2/ ITERATIONS );
-            if (m_animItr == ITERATIONS + 1) {
-                m_sideB = false;
-            } else if (m_animItr >= 2*ITERATIONS ) {
-                killTimer(m_flipTimer);
-                m_animItr=0;
-                setZValue(0);
-                m_maxzvalue--;
-            }
-            m_animItr += 1;
-        }
-    }
-}
-
-
-void SakWidget::showDetails(bool show)
-{
-    if (show == m_showingDetails) return;
-    else {
-        if (show) {
-            setZValue( ++m_maxzvalue );
-        }
-        m_showingDetails = show;
-        m_animItr = 0;
-        m_flipTimer = startTimer(25);
-    }
-}
-
-void SakWidget::setGeometry(const QRect& geom) {
-    prepareGeometryChange ();
-
-    setPos(geom.topLeft());
-    m_position = geom.topLeft();
-    m_scale = geom.width() / m_rect.width();
-
-    QTransform t=transform();
-    t.setMatrix(m_scale, t.m12(), t.m13(), t.m21(), m_scale, t.m23(), t.m31(), t.m32(), t.m33());
-    setTransform(t);
-  
-    m_cachedPixmap = m_cachedPixmapB = QPixmap();
-}
-
-
-void SakWidget::mousePressEvent(QGraphicsSceneMouseEvent* e)
-{
-    m_lastPoint = e->screenPos();
-}
-
-
-void SakWidget::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* )
-{
-    emit clicked();
-}
-
-void SakWidget::mouseReleaseEvent(QGraphicsSceneMouseEvent* )
-{
-    if (!m_ismoving)
-        showDetails(!m_showingDetails);
-    else if (!m_showingDetails)
-        m_position = pos();
-    m_ismoving = false;
-}
-
-
-void SakWidget::mouseMoveEvent(QGraphicsSceneMouseEvent* e)
-{
-    if (e->buttons() != Qt::NoButton && (m_lastPoint - e->screenPos()).manhattanLength() > 4) {
-        m_ismoving = true;
-        if (e->buttons() & Qt::LeftButton ) {
-            setPos(pos() + (e->screenPos() - m_lastPoint));
-            m_lastPoint = e->screenPos();
-        }
-    }
-}
-
-void SakWidget::paint ( QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget *)
-{
-    QTime t;
-    t.start();
-    if (m_cachedPixmap.isNull() || m_cachedPixmapB.isNull()) {
-
-        // image
-        QPixmap ic (m_task.icon);
-        if (!ic.isNull()) {
-            ic = ic.scaled(m_mask->width()-14, m_mask->height()-14, Qt::KeepAspectRatio);
-            QRect r = ic.rect();
-            r.moveTopLeft(QPoint((m_mask->width() - ic.width())/2, (m_mask->height()-ic.height())/2));
-            ic.setMask(m_mask->copy(r));
-        }
-
-        // basic shape
-        QPixmap basicShape = QPixmap(QSize(m_rect.width(), m_rect.height()));
-        {
-            QPainter p(&basicShape);
-            basicShape.fill(Qt::transparent);
-            QPen pen;
-            pen.setWidth(4);
-            pen.setColor(m_task.bgColor.darker(130));
-            p.setPen(pen);
-            p.setBrush(m_task.bgColor);
-            p.drawRoundRect(m_rect.adjusted(m_border,m_border, -m_border,-m_border), 25, 25 );
-
-            pen.setColor(m_task.fgColor);
-            p.setPen(pen);
-        }
-	
-	
-        if (m_cachedPixmap.isNull()) {
-            m_cachedPixmap = basicShape;
-            QPainter p(&m_cachedPixmap);
-            if (!ic.isNull()) {
-                p.drawPixmap((m_rect.width() - ic.width())/2, (m_rect.height() - ic.height())/2, ic);
-            } else if ( m_text && !m_sideB) {
-                QFont f = p.font();
-                QFontMetricsF metrix(f);
-                f.setPixelSize( m_rect.width() /  m_task.title.count() );
-                p.setFont(f);
-                p.drawText(m_rect, Qt::AlignCenter, m_task.title);
-            }
-        }
-		
-	
-        if (m_cachedPixmapB.isNull()) {
-            m_cachedPixmapB = basicShape;
-            QPainter p(&m_cachedPixmapB);
-            QPen pen;
-            pen.setColor(m_task.fgColor);
-            p.setPen(pen);
-
-            p.drawPixmap(QPoint(25, m_rect.height() - 120), ic.scaled(100, 100, Qt::KeepAspectRatio));
-
-            QTransform t;
-            t.translate( m_rect.width() -10 , 10);
-            t.rotate( -180 , Qt::YAxis);
-            p.setTransform(t);
-            m_text->drawContents(&p);
-        }
-    }
-	
-    painter->save();
-    QRectF exposed = option->exposedRect.adjusted(-1,-1,1,1);
-    exposed &= QRectF(0,0, m_cachedPixmap.width(), m_cachedPixmap.height());
-    if (m_sideB) 
-        painter->drawPixmap(exposed, m_cachedPixmapB, exposed);
-    else
-        painter->drawPixmap(exposed, m_cachedPixmap, exposed);
-    painter->restore();
-
-
-}
-
-//END SakWidget <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-
-//BEGIN Sak >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//BEGIN Sak basic >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 Sak::Sak(QObject* parent)
     : QObject(parent)
-        , m_timerId(0)
-        , m_timeoutPopup(0)
-                , m_settings(0)
+    , m_timerId(0)
+    , m_timeoutPopup(0)
+    , m_settings(0)
 {
 
     m_backupper = new Backupper;
@@ -707,6 +70,18 @@ Sak::Sak(QObject* parent)
     QDataStream stream(&tasksArray, QIODevice::ReadWrite);
     stream.setVersion(QDataStream::Qt_4_3);
     stream >> m_tasks;
+
+    //merge piecies
+    interactiveMergeHits();
+
+    // check consistency
+    QHash<QString, Task>::iterator itr = m_tasks.begin();
+    while(itr != m_tasks.end()) {
+        if ( !(*itr).checkConsistency() ) {
+            QMessageBox::warning(0, "Task inconsistency!", QString("The task %1 has incosistents records (maybe recorded with different clocks). The routine to recover a valid database in under development. Please contact the author zanettea at gmail dot com").arg((*itr).title));
+        }
+        itr++;
+    }
 
     qDebug() << QCoreApplication::arguments();
     if (QCoreApplication::arguments().contains("--clear")) {
@@ -721,15 +96,6 @@ Sak::Sak(QObject* parent)
 
     if (m_tasks.count() <= 0)
         m_settings->show();
-
-    // check consistency
-    QHash<QString, Task>::iterator itr = m_tasks.begin();
-    while(itr != m_tasks.end()) {
-        if ( !(*itr).checkConsistency() ) {
-            QMessageBox::warning(0, "Task inconsistency!", QString("The task %1 has incosistents records (maybe recorded with different clocks). The routine to recover a valid database in under development. Please contact the author zanettea at gmail dot com").arg((*itr).title));
-        }
-        itr++;
-    }
 
     trayIcon->installEventFilter(this);
     m_settings->installEventFilter(this);
@@ -763,7 +129,7 @@ Sak::Sak(QObject* parent)
     m_addHitMenu->addAction(m_addHitAction);
     connect(m_addHitAction, SIGNAL(triggered()), this, SLOT(addDefaultHit()));
 
-    populateHitsList();
+    populateHitsList(hitsList, createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
     selectedTask();
 
     m_view = new GView;
@@ -793,15 +159,17 @@ Sak::Sak(QObject* parent)
     qDebug() << "SAK: pinging interval " <<  v << Task::hours(m_currentInterval) << " hours ";
 
     m_previewing = false;
+    m_changedHit = false;
 
     m_timerId = 0;
+
     start();
 }
 
 void Sak::start()
 {
     if (!m_timerId) {
-        int msecs = Task::hours(m_currentInterval)*3600.0*1000.0 / 2;
+        int msecs = (int)(Task::hours(m_currentInterval)*3600.0*1000.0 / 2);
         m_timerId = startTimer( msecs );
         m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(msecs);
         startAction->setEnabled(false);
@@ -899,6 +267,10 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
     return false;
 }
 
+//END  basic >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+
+//BEGIN Tasks >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void Sak::addDefaultTask()
 {
     QString tentativeName;
@@ -911,17 +283,6 @@ void Sak::addDefaultTask()
     QTreeWidgetItem* item = new QTreeWidgetItem(QStringList(tentativeName));
     item->setData(0,Qt::UserRole, QVariant(QMetaType::VoidStar, &t));
     tasksTree->addTopLevelItem(item);
-}
-
-void Sak::addDefaultHit()
-{
-    QTreeWidgetItem* i = new QTreeWidgetItem;
-    i->setText(0, "--");
-    i->setText(1, "--");
-    i->setText(2, "--");
-    i->setFlags(i->flags() | Qt::ItemIsEditable);
-    hitsList->addTopLevelItem( i );
-    hitsList->setItemWidget(i, 0, new QDateTimeEdit);
 }
 
 void Sak::populateTasks()
@@ -981,26 +342,6 @@ bool Sak::settingsEventFilter(QEvent* e)
         foreach(QTreeWidgetItem* ii, selected)
             tasksTree->takeTopLevelItem(tasksTree->indexOfTopLevelItem (ii));
         selectedTask();
-        return true;
-    }
-    return false;
-}
-
-bool Sak::hitsListEventFilter(QEvent* e)
-{
-    if (e->type() == QEvent::ContextMenu) {
-        QContextMenuEvent* me = dynamic_cast<QContextMenuEvent*>(e);
-        if (!me) return false;
-        m_addHitMenu->popup(me->globalPos());
-        return true;
-    } else if (e->type() == QEvent::KeyRelease) {
-        QKeyEvent* ke = dynamic_cast<QKeyEvent*>(e);
-        if (!ke) return false;
-        if ( !hitsList->hasFocus() || (ke->key() != Qt::Key_Delete && ke->key() != Qt::Key_Backspace) ) return false;
-        QList<QTreeWidgetItem*> selected = hitsList->selectedItems();
-        if (selected.isEmpty()) return false;
-        foreach(QTreeWidgetItem* ii, selected)
-            hitsList->takeTopLevelItem(hitsList->indexOfTopLevelItem (ii));
         return true;
     }
     return false;
@@ -1081,10 +422,10 @@ void Sak::timerEvent(QTimerEvent* e)
             popup();
             // close timer
             killTimer(m_timeoutPopup);
-            m_timeoutPopup = startTimer(qMax( 5000.0, Task::hours(m_currentInterval)*3600.0*1000.0/10.0)); // 5 secmin
+            m_timeoutPopup = startTimer((int)(qMax( 5000.0, Task::hours(m_currentInterval)*3600.0*1000.0/10.0))); // 5 secmin
             // restart timer
             killTimer(m_timerId);
-            int msecs = Task::hours(m_currentInterval)*3600*1000;
+            int msecs = (int)(Task::hours((m_currentInterval)*3600*1000));
             m_timerId = startTimer(msecs);
             m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(msecs);
         } else {
@@ -1126,7 +467,7 @@ void Sak::workingOnTask()
                 if ( ot.hits.count() ) {
                     uint realElapsed = now.toTime_t() - ot.hits.last().first.toTime_t();
                     quint8 lastdt = ot.hits.last().second;
-                    qint64 diff = (qint64)realElapsed - (Task::hours(lastdt)+Task::hours(m_currentInterval))*3600/2; // seconds
+                    qint64 diff = (qint64)realElapsed - (quint64)((Task::hours(lastdt)+Task::hours(m_currentInterval))*3600/2); // seconds
                     if ( diff < -59) {
                         qWarning() << "SAK: overestimated time elapsed from last record (" << ot.hits.last().first << ") of task " << ot.title << " and new record of task " << t.title << " (" << diff << " seconds)";
                         quint8 newdt = Task::value(qMin(24.0, qMax(0.0,  Task::hours(lastdt) + (double)diff/3600.0)));
@@ -1250,7 +591,7 @@ void layoutInRect( QList<SakWidget*> sortedWidgets, QRect rect, char attractor)
 
         QRect leftRect(rect.topLeft(), QSize(h/2, h));
         layoutInRect(leftList, leftRect, 'R');
-        QRect rightRect(rect.topLeft() + QPoint(0.75*w,0), QSize(h/2, h));
+        QRect rightRect(rect.topLeft() + QPoint((int)(0.75*w),0), QSize(h/2, h));
         layoutInRect(rightList, rightRect, 'L');
     } else {
         QRect square(rect.topLeft() + QPoint(0,w/2), QSize(w,w));
@@ -1258,7 +599,7 @@ void layoutInRect( QList<SakWidget*> sortedWidgets, QRect rect, char attractor)
 
         QRect leftRect(rect.topLeft(), QSize(w, w/2));
         layoutInRect(leftList, leftRect, 'B');
-        QRect rightRect(rect.topLeft() + QPoint(0,0.75*h), QSize(w, w/2));
+        QRect rightRect(rect.topLeft() + QPoint(0,(int)(0.75*h)), QSize(w, w/2));
         layoutInRect(rightList, rightRect, 'T');
     }
 }
@@ -1266,15 +607,15 @@ void layoutInRect( QList<SakWidget*> sortedWidgets, QRect rect, char attractor)
 QRect Layouting( const QList<SakWidget*>& sortedWidgets)
 {
     QRect r = QDesktopWidget().geometry();
-    int height = 0.75 * r.height();
+    int height = (int)(0.75 * r.height());
     int width = r.width();
 
     int firstW = width / 2 < height ? width : height * 2;
     int firstH = firstW / 2;
-    QRect firstRect (r.x() + (width - firstW) / 2, r.y() + (height - firstH) / 2 + r.height() * 0.25, firstW, firstH);
+    QRect firstRect (r.x() + (width - firstW) / 2, r.y() + (height - firstH) / 2 + (int)(r.height() * 0.25), firstW, firstH);
 
     layoutInRect(sortedWidgets, firstRect, 'C');
-    return QRect(QPoint(r.x(), r.y()), QSize(r.width(), 0.25 * r.height()));
+    return QRect(QPoint(r.x(), r.y()), QSize(r.width(), (int)(0.25 * r.height())));
 }
 
 void Sak::popup()
@@ -1352,7 +693,7 @@ void Sak::popup()
 
 //    m_view->showFullScreen();
     m_view->setGeometry( qApp->desktop()->screenGeometry() );
-	m_view->show();
+    m_view->show();
     m_view->raise();
     m_view->setFocus();
     m_view->grabKeyboard();
@@ -1360,69 +701,7 @@ void Sak::popup()
     qApp->setActiveWindow(m_view);
 }
 
-void Sak::selectedStartDate(const QDate& date)
-{
-    if (sender() != cal1) {
-        cal1->setSelectedDate(date);
-    }
-    if (cal2->selectedDate() < cal1->selectedDate()) {
-        cal2->setSelectedDate(date);
-    }
-    cal2->setMinimumDate(date);
-    populateHitsList();
-}
-
-void Sak::selectedEndDate(const QDate& date)
-{
-    if (sender() != cal2) {
-        cal2->setSelectedDate(date);
-    }
-    if (cal1->selectedDate() > date) {
-        cal2->setSelectedDate(cal1->selectedDate());
-    }
-    populateHitsList();
-}
-
-
-void Sak::hitsListItemChanged(QTreeWidgetItem* i, int column)
-{
-    if (m_editedTasks.isEmpty()) {
-        m_editedTasks = m_tasks;
-    }
-    if (column == 1) {
-        hitsList->blockSignals(true);
-        if (!i) return;
-        if (m_tasks.contains(i->text(column))) {
-            i->setIcon(column, m_tasks[i->text(column)].icon);
-        } else {
-            i->setIcon(column, QIcon());
-        }
-        hitsList->blockSignals(false);
-    }
-}
-
-void Sak::populateHitsList()
-{
-    //
-    hitsList->clear();
-    QMap<QDateTime, QTreeWidgetItem*> widgets;
-    foreach(const Task& t, m_tasks) {
-        QList< QPair<QDateTime, quint8> >::const_iterator itr = t.hits.begin(), end = t.hits.end();
-        while(itr != t.hits.end()) {
-            const QDateTime& d = itr->first;
-            if (d.date() >= cal1->selectedDate() && d.date() <= cal2->selectedDate()) {
-                QTreeWidgetItem* w = new QTreeWidgetItem;
-                w->setText(0, d.toString("dd/MM/yyyy hh:mm:ss"));
-                w->setText(1, t.title);
-                w->setText(2, QString("%1").arg(Task::hours(itr->second)));
-                w->setIcon(1, t.icon);
-                w->setFlags(w->flags() | Qt::ItemIsEditable);
-                widgets[d] = w;            }
-            itr++;
-        }
-    }
-    hitsList->addTopLevelItems(widgets.values());
-}
+//END   Tasks >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 
 //BEGIN settings ================================
@@ -1542,19 +821,7 @@ void Sak::setupSettingsWidget()
 
     QVBoxLayout* tab3MainLayout = new QVBoxLayout(tab3);
     //taskSelector = new QComboBox;
-    hitsList = new QTreeWidget;
-    hitsList->setColumnCount(3);
-    hitsList->setColumnWidth(0, 250);
-    hitsList->setColumnWidth(1, 150);
-    hitsList->setIconSize(QSize(24,24));
-    hitsList->setSortingEnabled(true);
-    hitsList->setItemDelegateForColumn(0, new MyDateItemDelegate);
-    QTreeWidgetItem* header = new QTreeWidgetItem;
-    header->setText(0, "Date/Time");
-    header->setText(1, "Task");
-    header->setText(2, "Duration");
-    hitsList->setHeaderItem(header);
-    hitsList->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
+    hitsList = newHitsList();
     cal1 = new QCalendarWidget;
     cal1->setMinimumSize(QSize(250,200));
     cal2 = new QCalendarWidget;
@@ -1573,6 +840,27 @@ void Sak::setupSettingsWidget()
     
 }
 
+QTreeWidget* Sak::newHitsList()
+{
+    QTreeWidget* hitsList = new QTreeWidget;
+    hitsList->setColumnCount(4);
+    hitsList->setColumnWidth(0, 250);
+    hitsList->setColumnWidth(1, 150);
+    hitsList->setColumnWidth(2, 150);
+    hitsList->setColumnWidth(3, 150);
+    hitsList->setIconSize(QSize(24,24));
+    hitsList->setSortingEnabled(true);
+    hitsList->setItemDelegateForColumn(0, new MyDateItemDelegate);
+    hitsList->setItemDelegateForColumn(1, new TaskItemDelegate(this));
+    QTreeWidgetItem* header = new QTreeWidgetItem;
+    header->setText(0, "Date/Time");
+    header->setText(1, "Task");
+    header->setText(2, "Duration (min)");
+    header->setText(3, "Overestimation");
+    hitsList->setHeaderItem(header);
+    hitsList->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
+    return hitsList;
+}
 
 void Sak::setVisible(bool visible)
 {
@@ -1608,8 +896,8 @@ void Sak::createActions()
 
 void Sak::trayIconActivated(QSystemTrayIcon::ActivationReason reason)
 {
-if (reason == QSystemTrayIcon::DoubleClick) {
-         setVisible(true);
+    if (reason == QSystemTrayIcon::DoubleClick) {
+        setVisible(true);
     }
 }
 

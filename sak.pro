@@ -11,8 +11,8 @@ CONFIG += qt debug
 QT += opengl
 
 # Input
-HEADERS += sak.h
-SOURCES += main.cpp sak.cpp
+HEADERS += sak.h sakwidget.h sakmessageitem.h pixmapviewer.h backupper.h piechart.h task.h
+SOURCES += main.cpp sak.cpp sakhits.cpp sakwidget.cpp sakmessageitem.cpp pixmapviewer.cpp task.cpp
 
 win32 {
 } 
