@@ -328,6 +328,7 @@ void Sak::interactiveMergeHits()
         }
         itr++;
     }
+    if (hits.count() == 0) return;
 
     qDebug() << "hits: " << hits.count() << hits.begin().key() << (--hits.end()).key();
     QList<Hit> okHits (createHitsList(hits.begin().key(), (--hits.end()).key()));

@@ -137,6 +137,8 @@ Sak::Sak(QObject* parent)
     m_addHitMenu->addAction(m_exportDataAction);
     connect(m_exportDataAction, SIGNAL(triggered()), this, SLOT(exportHits()));
 
+    qDebug() << QDateTime(cal1->selectedDate()) << QDateTime(cal2->selectedDate());
+    m_editedTasks = m_tasks;
     populateHitsList(hitsList, createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
     selectedTask();
 
@@ -433,7 +435,7 @@ void Sak::timerEvent(QTimerEvent* e)
             m_timeoutPopup = startTimer((int)(qMax( 5000.0, Task::hours(m_currentInterval)*3600.0*1000.0/10.0))); // 5 secmin
             // restart timer
             killTimer(m_timerId);
-            int msecs = (int)(Task::hours((m_currentInterval)*3600*1000));
+            int msecs = (int)(Task::hours(m_currentInterval)*3600.0*1000.0);
             m_timerId = startTimer(msecs);
             m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(msecs);
         } else {
@@ -841,6 +843,7 @@ void Sak::setupSettingsWidget()
     QHBoxLayout* calsLayout = new QHBoxLayout;
     calsLayout->addWidget(cal1);
     calsLayout->addWidget(cal2);
+    cal2->setSelectedDate(QDate::currentDate().addDays(1));
     tab3MainLayout->addLayout(calsLayout);
 
     m_settings->setWindowTitle(tr("SaK"));

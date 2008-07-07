@@ -117,10 +117,11 @@ double Hit::overestimations(const QList<Hit>& hits, QVector<double>& overestimat
                 overestimation[i] = 0;
                 totOverestimation -= diff;
             } if (diff < -59) {
-                if (i <= count) {
+                if (i < count) {
                     overestimation[i+1] = ceil(-diff/120);
                     overestimation[i] = ceil(-diff/120);
                 }
+                overestimation[i] = ceil(-diff/120);
                 //qDebug() << "SAK: task " << sortedList[i].task->title << ": overestimated time from hit " << sortedList[i].timestamp << " and hit " << t << ". Expected " << expected/60 << " minutes, got " << got/60 << " (diff = " << diff/60 << ")";
             }
             t=sortedList[i].timestamp;
