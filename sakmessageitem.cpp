@@ -11,7 +11,7 @@ SakMessageItem::SakMessageItem(const QString& message) : QGraphicsItem(0) {
 
     m_t = new QTextDocument;
     m_t->setHtml(message);
-    m_t->setTextWidth(520);
+    m_t->setTextWidth(500);
 
     setZValue(-1);
     //setFlag(ItemIsMovable, true);
@@ -51,8 +51,8 @@ void SakMessageItem::paint(QPainter * painter, const QStyleOptionGraphicsItem * 
 
         QPainterPath path;
         int curve = 15;
-        qreal w = 200 + qMin(600.0, m_t->pageSize().width());
-        qreal h = qMax(80.0+m_border+curve, qMin(200.0, m_t->pageSize().height()+40));
+        qreal w = 300 + qMin(600.0, m_t->documentLayout()->documentSize().width());
+        qreal h = qMax(80.0+m_border+curve, qMin(200.0, m_t->documentLayout()->documentSize().height() + 20));
         path.moveTo(200 + m_border, 75);
         path.lineTo(200, 75);
         path.lineTo(200+m_border, 40);

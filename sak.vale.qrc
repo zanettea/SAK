@@ -3,5 +3,6 @@
     <file alias="images/icon.png" >imagesvale/icon.png</file>
     <file alias="images/splash.png">imagesvale/splash.png</file>
     <file alias="images/whip.png">imagesvale/whip.png</file>
+    <file alias="images/exit.png">images/exit.png</file>
  </qresource>
  </RCC>

@@ -63,7 +63,33 @@ Sak::Sak(QObject* parent)
     , m_settings(0)
     , m_changedHit(false)
 {
+#ifndef Q_OS_LINUX
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, "%APPDATA%");
+#endif
+    init();
 
+    if (QCoreApplication::arguments().contains("--clear")) {
+        QHash<QString, Task>::iterator itr = m_tasks.begin();
+        while(itr != m_tasks.end()) {
+            itr->hits.clear();
+            itr++;
+        }
+    }
+
+    if (m_tasks.count() <= 0)
+        m_settings->show();
+
+    trayIcon->installEventFilter(this);
+
+
+    m_previewing = false;
+    m_changedHit = false;
+    m_timerId = 0;
+    start();
+}
+
+void Sak::init()
+{
     m_backupper = new Backupper;
     m_incremental = new Incremental;
 
@@ -86,21 +112,8 @@ Sak::Sak(QObject* parent)
         itr++;
     }
 
-    qDebug() << QCoreApplication::arguments();
-    if (QCoreApplication::arguments().contains("--clear")) {
-        QHash<QString, Task>::iterator itr = m_tasks.begin();
-        while(itr != m_tasks.end()) {
-            itr->hits.clear();
-            itr++;
-        }
-    }
-
     setupSettingsWidget();
 
-    if (m_tasks.count() <= 0)
-        m_settings->show();
-
-    trayIcon->installEventFilter(this);
     m_settings->installEventFilter(this);
     hitsList->installEventFilter(this);
     tasksTree->installEventFilter(this);
@@ -109,50 +122,30 @@ Sak::Sak(QObject* parent)
     headerItem->setSizeHint(0 , QSize(0,0));
     headerItem->setSizeHint(1 , QSize(0,0));
     tasksTree->setHeaderItem(headerItem);
-
-    // add task action
-    m_addTaskAction = new QAction("Add task", this);
-    m_addTaskMenu = new QMenu;
-    m_addTaskAction->setText("Add task");
-    m_addTaskMenu->addAction(m_addTaskAction);
-    connect(m_addTaskAction, SIGNAL(triggered()), this, SLOT(addDefaultTask()));
+    
     connect(bgColorButton, SIGNAL(clicked()), this, SLOT(selectColor()));
     connect(fgColorButton, SIGNAL(clicked()), this, SLOT(selectColor()));
     connect(previewButton, SIGNAL(clicked()), this, SLOT(popup()));
     connect(tasksTree, SIGNAL(itemSelectionChanged()), this, SLOT(selectedTask()));
     connect(tasksTree, SIGNAL(itemClicked(QTreeWidgetItem*,int)), this, SLOT(selectedTask()));
     populateTasks();
-
+    
     connect(cal1, SIGNAL(clicked(QDate)), this, SLOT(selectedStartDate(QDate)));
     connect(cal2, SIGNAL(clicked(QDate)), this, SLOT(selectedEndDate(QDate)));
     connect(hitsList, SIGNAL(itemChanged(QTreeWidgetItem*,int)), this, SLOT(hitsListItemChanged(QTreeWidgetItem*,int)));
-    m_addHitAction = new QAction("Add hit", this);
-    m_addHitMenu = new QMenu;
-    m_addHitAction->setText("Add hit");
-    m_addHitMenu->addAction(m_addHitAction);
-    connect(m_addHitAction, SIGNAL(triggered()), this, SLOT(addDefaultHit()));
-
-    m_exportDataAction = new QAction("Export data", this);
-    m_exportDataAction->setText("Export data");
-    m_addHitMenu->addAction(m_exportDataAction);
-    connect(m_exportDataAction, SIGNAL(triggered()), this, SLOT(exportHits()));
-
-    qDebug() << QDateTime(cal1->selectedDate()) << QDateTime(cal2->selectedDate());
-    m_editedTasks = m_tasks;
-    populateHitsList(hitsList, createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
     selectedTask();
-
+    
     m_view = new GView;
     m_view->setScene(new QGraphicsScene);
     m_view->scene()->setSceneRect(QDesktopWidget().geometry());
-
+    
 //    QPalette pal;
 //    pal.setColor(QPalette::Window, Qt::yellow);
 //    pal.setColor(QPalette::Base,  Qt::yellow);
 //    pal.setColor(QPalette::Background,  Qt::yellow);
 //    m_view->setPalette(pal);
 //    m_view->viewport()->setPalette(pal);
-
+    
     m_view->setFrameStyle(QFrame::NoFrame);
     m_view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -162,18 +155,12 @@ Sak::Sak(QObject* parent)
     m_view->setAttribute(Qt::WA_QuitOnClose, false);
     m_view->setWindowIcon( QIcon(":/images/icon.png") );
     m_view->setWindowTitle("SaK - Sistema Anti Kazzeggio");
-
+    
     int v = durationSpinBox->value();
     v = qMax(1, qMin(1440, v));
     m_currentInterval = Task::value( (double)v/60.0 );
     qDebug() << "SAK: pinging interval " <<  v << Task::hours(m_currentInterval) << " hours ";
 
-    m_previewing = false;
-    m_changedHit = false;
-
-    m_timerId = 0;
-
-    start();
 }
 
 void Sak::start()
@@ -219,19 +206,77 @@ void Sak::flush()
     m_incremental->clearAddedPieces();
 }
 
-Sak::~Sak()
+void Sak::saveAsDb()
 {
     if (!m_settings) return;
+    QString fileName = QFileDialog::getSaveFileName();
+    QFile file(fileName);
+    file.remove();
     flush();
-    delete m_settings;
+    QSettings settings("ZanzaSoft", "SAK");
+    QFile file1(settings.fileName());
+    if (!file1.copy(fileName)) {
+        qWarning() << "Error copying " << settings.fileName() << " to " << fileName << file1.errorString();
+    }
+}
+
+void Sak::exportDbCsv()
+{
+    if (!m_settings) return;
+    QString fileName = QFileDialog::getSaveFileName();
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadWrite|QIODevice::Truncate)) {
+        QMessageBox::warning(0, "Error saving", QString("Error saving to file %1").arg(fileName));
+        return;
+    }
+    QTextStream stream(&file);
+    foreach(const Task& t, m_tasks) {
+        QList< QPair<QDateTime, quint8> >::const_iterator itr = t.hits.begin();
+        while(itr != t.hits.end()) {
+            stream << t.title << ";" << (*itr).first.toString(DATETIMEFORMAT) << ";" << Task::min((*itr).second) << ";\n";
+            itr++;
+        }
+    }
+    file.close();
+}
+
+void Sak::open()
+{
+    QString fileName = QFileDialog::getOpenFileName(0, "Open db", "Select a new db");
+    QFile file(fileName);
+    if (!file.exists()) {
+        QMessageBox::warning(0, "Cannot find db", QString("Cannot find db file %1").arg(fileName));
+    }
+    if (QMessageBox::Ok == QMessageBox::question(0, "Save current db", "Current db will be overwritten by the new db: do you want to backup it to file before?", QMessageBox::Ok | QMessageBox::No, QMessageBox::No) ) {
+        saveAsDb();
+    }
+    destroy();
+
+    file.copy(QSettings().fileName());
+    init();
+    m_settings->show();
+    start();
+}
+
+void Sak::destroy()
+{
+    stop();
+    if (!m_settings) return;
+    flush();
+    m_settings->deleteLater();
     m_view->scene()->deleteLater();
-    delete m_view;
-    delete m_addTaskAction;
-    delete m_addTaskMenu;
-    delete m_addHitAction;
-    delete m_addHitMenu;
+    m_view->deleteLater();
     delete m_backupper;
     delete m_incremental;
+    m_previewing = false;
+    m_changedHit = false;
+    m_timerId = 0;
+}
+
+
+Sak::~Sak()
+{
+    destroy();
 }
 
 
@@ -261,6 +306,8 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
 
             return true;
         }
+    } else if (obj == m_view && e->type() == QEvent::Show) {
+        m_view->grabKeyboard();
     } else if (obj == m_view && e->type() == QEvent::Close) {
         if (trayIcon->isVisible()) {
             return true;
@@ -700,15 +747,21 @@ void Sak::popup()
     m_view->scene()->addItem(sakMessage);
     sakMessage->show();
 
+    // add the exit item
+
+    SakExitItem* exitItem = new SakExitItem(QPixmap(":/images/exit.png"));
+    QRect r = QDesktopWidget().geometry();
+    connect(exitItem, SIGNAL(exit()), this, SLOT(clearView()));
+    exitItem->setPos(r.width() - exitItem->boundingRect().width(), 0);
+    m_view->scene()->addItem(exitItem);
+    exitItem->show();
 
 //    m_view->showFullScreen();
     m_view->setGeometry( qApp->desktop()->screenGeometry() );
     m_view->show();
     m_view->raise();
     m_view->setFocus();
-    m_view->grabKeyboard();
     qApp->alert(m_view, 5000);
-    qApp->setActiveWindow(m_view);
 }
 
 //END   Tasks >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -719,12 +772,14 @@ void Sak::popup()
 
 void Sak::setupSettingsWidget()
 {
-    m_settings = new QWidget();
+    m_settings = new QMainWindow();
     m_settings->setMinimumHeight(500);
     m_settings->setMinimumWidth(700);
-
+    QWidget* centralWidget = new QWidget;
+    m_settings->setCentralWidget(centralWidget);
+    
     QVBoxLayout* theMainLayout =  new QVBoxLayout;
-    m_settings->setLayout(theMainLayout);
+    centralWidget->setLayout(theMainLayout);
 
     tabs = new QTabWidget;
     theMainLayout->addWidget(tabs);
@@ -739,6 +794,19 @@ void Sak::setupSettingsWidget()
     tabs->addTab(tab3, "Advanced");
 
     createActions();
+    QMenuBar* mainMenu = new QMenuBar;
+    m_settings->setMenuBar(mainMenu);
+    QMenu* programMenu =  mainMenu->addMenu("Program");
+    programMenu->addAction(quitAction);
+    programMenu->addAction(minimizeAction);
+    QMenu* dbMenu =  mainMenu->addMenu("Db");
+    dbMenu->addAction(flushAction);
+    dbMenu->addAction(openAction);
+    dbMenu->addAction(saveAsDbAction);
+    dbMenu->addAction(exportDbCsvAction);
+    QMenu* actionsMenu =  mainMenu->addMenu("Actions");
+    actionsMenu->addAction(startAction);
+    actionsMenu->addAction(stopAction);
 
     QVBoxLayout *mainLayout = new QVBoxLayout;
     QGridLayout *messageLayout = new QGridLayout;
@@ -903,6 +971,32 @@ void Sak::createActions()
 
     flushAction = new QAction(tr("&Flush data/settings to disk"), m_settings);
     connect(flushAction, SIGNAL(triggered()), this, SLOT(flush()));
+
+    saveAsDbAction = new QAction(tr("Backup as"), m_settings);
+    connect(saveAsDbAction, SIGNAL(triggered()), this, SLOT(saveAsDb()));
+
+    exportDbCsvAction = new QAction(tr("Export hits in CSV format"), m_settings);
+    connect(exportDbCsvAction, SIGNAL(triggered()), this, SLOT(exportDbCsv()));
+
+    openAction = new QAction(tr("Open a db backupt"), m_settings);
+    connect(openAction, SIGNAL(triggered()), this, SLOT(open()));
+
+    m_addHitAction = new QAction("Add hit", m_settings);
+    m_addHitMenu = new QMenu(m_settings);
+    m_addHitAction->setText("Add hit");
+    m_addHitMenu->addAction(m_addHitAction);
+    connect(m_addHitAction, SIGNAL(triggered()), this, SLOT(addDefaultHit()));
+
+    m_exportDataAction = new QAction("Export data", m_settings);
+    m_exportDataAction->setText("Export data");
+    m_addHitMenu->addAction(m_exportDataAction);
+    connect(m_exportDataAction, SIGNAL(triggered()), this, SLOT(exportHits()));
+
+    m_addTaskAction = new QAction("Add task", m_settings);
+    m_addTaskMenu = new QMenu(m_settings);
+    m_addTaskAction->setText("Add task");
+    m_addTaskMenu->addAction(m_addTaskAction);
+    connect(m_addTaskAction, SIGNAL(triggered()), this, SLOT(addDefaultTask()));
 }
 
 void Sak::trayIconActivated(QSystemTrayIcon::ActivationReason reason)

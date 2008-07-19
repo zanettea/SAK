@@ -41,7 +41,12 @@ public slots:
     void start();
     void stop();
     void flush();
+    void open();
+    void saveAsDb();
+    void exportDbCsv();
 protected slots:
+    void init();
+    void destroy();
     // tasks
     void addDefaultTask();
     void exportHits();
@@ -64,7 +69,7 @@ protected slots:
 private:
     int m_timerId, m_timeoutPopup;
     QDateTime m_nextTimerEvent;
-    QWidget* m_settings;
+    QMainWindow* m_settings;
     QHash<QString, Task> m_tasks;
     QHash<QString, Task> m_editedTasks;
     QMultiMap<int, SakWidget*> m_widgets;
@@ -122,6 +127,9 @@ private:
     QAction *stopAction;
     QAction *flushAction;
     QAction *quitAction;
+    QAction *saveAsDbAction;
+    QAction *openAction;
+    QAction *exportDbCsvAction;
 
     QSystemTrayIcon *trayIcon;
     QMenu *trayIconMenu;

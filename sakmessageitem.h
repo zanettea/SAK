@@ -20,4 +20,15 @@ private:
     QRectF m_rect;
 };
 
+class SakExitItem : public QObject, public QGraphicsPixmapItem
+{
+    Q_OBJECT;
+public:
+    SakExitItem(const QPixmap&p) : QGraphicsPixmapItem(p) {}
+signals:
+    void exit();
+protected:
+    void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *) { emit exit(); };
+};
+
 #endif

@@ -14,7 +14,6 @@
 
 //BEGIN MyDateItemDelegate
 
-#define DATETIMEFORMAT "yyyy/MM/dd hh:mm:ss"
 
 MyDateItemDelegate::MyDateItemDelegate(QObject *parent)
 : QItemDelegate(parent)
@@ -121,6 +120,7 @@ void Sak::addDefaultHit()
     i->setText(0, p.first.toString(DATETIMEFORMAT));
     i->setText(1, m_tasks.begin().key());
     i->setIcon(1, m_tasks.begin().value().icon);
+    i->setSizeHint(0, QSize(32, 32));
     i->setText(2, QString("%1").arg(p.second));
     i->setFlags(i->flags() | Qt::ItemIsEditable);
     hitsList->addTopLevelItem( i );
@@ -200,6 +200,7 @@ bool Sak::hitsListEventFilter(QEvent* e)
         saveHitChanges();
     } else if (e->type() == QEvent::Show) {
         m_editedTasks = m_tasks;
+        populateHitsList(hitsList, createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
     }
     return false;
 }
@@ -290,6 +291,7 @@ void Sak::populateHitsList(QTreeWidget* theHitsList, const QList<Hit>& hits)
         QTreeWidgetItem* w = new QTreeWidgetItem;
         w->setText(0, hit.timestamp.toString(DATETIMEFORMAT));
         w->setText(1, hit.task->title);
+        w->setSizeHint(0, QSize(24, 24));
         w->setData(1, Qt::UserRole, qVariantFromValue(hit));
         w->setText(2, QString("%1").arg(Task::min(hit.duration)));
         if (o[i] != 0) {

@@ -4,6 +4,8 @@
 #include <QtGui>
 #include <math.h>
 
+#define DATETIMEFORMAT "yyyy/MM/dd hh:mm:ss"
+
 struct Task
 {
     Task() : bgColor(Qt::white), fgColor(Qt::black), totHours(0) {}
