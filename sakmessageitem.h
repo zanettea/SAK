@@ -28,8 +28,8 @@ public:
 signals:
     void exit();
 protected:
-    void mousePressEvent ( QGraphicsSceneMouseEvent * event ) {}
-    void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *) { fprintf(stderr, "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n"); emit exit(); };
+    void mousePressEvent ( QGraphicsSceneMouseEvent * ) {}
+    void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *) { emit exit(); };
 };
 
 #endif
