@@ -754,6 +754,7 @@ void Sak::popup()
     connect(exitItem, SIGNAL(exit()), this, SLOT(clearView()));
     exitItem->setPos(r.width() - exitItem->boundingRect().width(), 0);
     m_view->scene()->addItem(exitItem);
+    exitItem->setZValue(1e8);
     exitItem->show();
 
 //    m_view->showFullScreen();
