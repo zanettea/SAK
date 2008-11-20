@@ -44,6 +44,7 @@ public slots:
     void open();
     void saveAsDb();
     void exportDbCsv();
+    void sendByEmail();
 protected slots:
     void init();
     void destroy();
@@ -130,6 +131,7 @@ private:
     QAction *saveAsDbAction;
     QAction *openAction;
     QAction *exportDbCsvAction;
+    QAction *sendByEmailAction;
 
     QSystemTrayIcon *trayIcon;
     QMenu *trayIconMenu;

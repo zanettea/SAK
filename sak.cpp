@@ -240,6 +240,14 @@ void Sak::exportDbCsv()
     file.close();
 }
 
+void Sak::sendByEmail()
+{
+    if (!m_settings) return;
+    flush();
+    QSettings settings("ZanzaSoft", "SAK");
+    QProcess::startDetached("kmail -s \"Sak db backup\" --body \"Enjoy the send by email feature of Sak. Bye. \" --attach \"" + settings.fileName() + "\"");
+}
+
 void Sak::open()
 {
     QString fileName = QFileDialog::getOpenFileName(0, "Open db", "Select a new db");
@@ -805,6 +813,7 @@ void Sak::setupSettingsWidget()
     dbMenu->addAction(openAction);
     dbMenu->addAction(saveAsDbAction);
     dbMenu->addAction(exportDbCsvAction);
+    dbMenu->addAction(sendByEmailAction);
     QMenu* actionsMenu =  mainMenu->addMenu("Actions");
     actionsMenu->addAction(startAction);
     actionsMenu->addAction(stopAction);
@@ -978,6 +987,9 @@ void Sak::createActions()
 
     exportDbCsvAction = new QAction(tr("Export hits in CSV format"), m_settings);
     connect(exportDbCsvAction, SIGNAL(triggered()), this, SLOT(exportDbCsv()));
+
+    sendByEmailAction = new QAction(tr("Send by email (with kmail)"), m_settings);
+    connect(sendByEmailAction, SIGNAL(triggered()), this, SLOT(sendByEmail()));
 
     openAction = new QAction(tr("Open a db backupt"), m_settings);
     connect(openAction, SIGNAL(triggered()), this, SLOT(open()));
