@@ -54,6 +54,7 @@ protected slots:
     void populateTasks();
     void saveHitChanges();
     void selectedTask();
+    void doubleClickedTask(QTreeWidgetItem* i, int column);
     void selectColor();
     void popup();
     void workingOnTask();
@@ -61,10 +62,11 @@ protected slots:
     void trayIconActivated(QSystemTrayIcon::ActivationReason);
     // create a list of hits merging tasks
     QList<Hit> createHitsList(const QDateTime& from = QDateTime(), const QDateTime& to = QDateTime());
+    QMap<double, Task*> createSummaryList(const QList<Hit>& hits);
     void selectedStartDate(const QDate& date);
     void selectedEndDate(const QDate& date);
     void hitsListItemChanged(QTreeWidgetItem*, int column);
-    void populateHitsList(QTreeWidget*, const QList<Hit>&);
+    void populateHitsList(const QList<Hit>&);
     void addDefaultHit();
     void interactiveMergeHits();
 private:
@@ -96,6 +98,7 @@ public:
     void setVisible(bool visible);
 private:
     QTreeWidget* newHitsList();
+    QTreeWidget* newTaskSummaryList();
     void setupSettingsWidget();
     void createActions();
 
@@ -103,6 +106,7 @@ private:
     QWidget* tab1;
     QWidget* tab2;
     QWidget* tab3;
+    QWidget* tab4;
     QPushButton* previewButton;
     QPushButton* bgColorButton;
     QPushButton* fgColorButton;
@@ -115,8 +119,8 @@ private:
 
     QTreeWidget* tasksTree;
     QComboBox* taskSelector;
-    QTreeWidget* hitsList;
-    QCalendarWidget* cal1, *cal2;
+    QTreeWidget* hitsList, *summaryList;
+    QCalendarWidget* cal1, *cal2, *cal3, *cal4;
     PixmapViewer* taskPixmapViewer;
     QTextEdit* taskTextEditor;
     QLineEdit* taskTitleEditor;

@@ -1,8 +1,10 @@
- <!DOCTYPE RCC><RCC version="1.0">
- <qresource prefix="/">
-    <file alias="images/icon.png" >imagesvale/icon.png</file>
-    <file alias="images/splash.png">imagesvale/splash.png</file>
-    <file alias="images/whip.png">imagesvale/whip.png</file>
-    <file alias="images/exit.png">images/exit.png</file>
- </qresource>
- </RCC>
+<RCC>
+    <qresource prefix="/" >
+        <file alias="images/icon.png" >imagesvale/icon.png</file>
+        <file alias="images/splash.png" >imagesvale/splash.png</file>
+        <file alias="images/whip.png" >imagesvale/whip.png</file>
+        <file alias="images/exit.png" >images/exit.png</file>
+        <file>images/inactive.png</file>
+        <file>images/active.png</file>
+    </qresource>
+</RCC>

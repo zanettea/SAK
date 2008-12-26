@@ -1,8 +1,10 @@
- <!DOCTYPE RCC><RCC version="1.0">
- <qresource prefix="/">
-    <file>images/icon.png</file>
-    <file>images/splash.png</file>
-    <file>images/whip.png</file>
-    <file>images/exit.png</file>
- </qresource>
- </RCC>
+<RCC>
+    <qresource prefix="/" >
+        <file>images/icon.png</file>
+        <file>images/splash.png</file>
+        <file>images/whip.png</file>
+        <file>images/exit.png</file>
+        <file>images/active.png</file>
+        <file>images/inactive.png</file>
+    </qresource>
+</RCC>

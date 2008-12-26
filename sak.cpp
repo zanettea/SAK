@@ -8,7 +8,7 @@
 
 #include "sak.h"
 #include "backupper.h"
-
+#include "piechart.h"
 
 
 //END Task <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -42,8 +42,11 @@ class GView : public QGraphicsView
         GView() { 
             if (QGLFormat::hasOpenGL()) { 
                 qDebug() << "Using OpenGL";
-                setViewport(new MyGL);
+                setViewport(new QGLWidget);
             }
+        }
+        ~GView() {
+            delete this->viewport();
         }
         void drawBackground(QPainter* p, const QRectF & rect) {
             QBrush brush(QColor(0,0,0,200));
@@ -100,8 +103,12 @@ void Sak::init()
     stream.setVersion(QDataStream::Qt_4_3);
     stream >> m_tasks;
 
+    m_editedTasks = m_tasks;
+
     //merge piecies
     interactiveMergeHits();
+
+    m_editedTasks = m_tasks;
 
     // check consistency
     QHash<QString, Task>::iterator itr = m_tasks.begin();
@@ -121,6 +128,7 @@ void Sak::init()
     QTreeWidgetItem* headerItem = new QTreeWidgetItem;
     headerItem->setSizeHint(0 , QSize(0,0));
     headerItem->setSizeHint(1 , QSize(0,0));
+    headerItem->setSizeHint(2 , QSize(0,0));
     tasksTree->setHeaderItem(headerItem);
     
     connect(bgColorButton, SIGNAL(clicked()), this, SLOT(selectColor()));
@@ -132,6 +140,8 @@ void Sak::init()
     
     connect(cal1, SIGNAL(clicked(QDate)), this, SLOT(selectedStartDate(QDate)));
     connect(cal2, SIGNAL(clicked(QDate)), this, SLOT(selectedEndDate(QDate)));
+    connect(cal3, SIGNAL(clicked(QDate)), this, SLOT(selectedStartDate(QDate)));
+    connect(cal4, SIGNAL(clicked(QDate)), this, SLOT(selectedEndDate(QDate)));
     connect(hitsList, SIGNAL(itemChanged(QTreeWidgetItem*,int)), this, SLOT(hitsListItemChanged(QTreeWidgetItem*,int)));
     selectedTask();
     
@@ -145,22 +155,23 @@ void Sak::init()
 //    pal.setColor(QPalette::Background,  Qt::yellow);
 //    m_view->setPalette(pal);
 //    m_view->viewport()->setPalette(pal);
-    
+
+    m_view->installEventFilter(this);
     m_view->setFrameStyle(QFrame::NoFrame);
     m_view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_view->installEventFilter(this);
     m_view->setWindowFlags(m_view->windowFlags() | Qt::WindowStaysOnTopHint | Qt::ToolTip );
     //m_view->setWindowModality(Qt::ApplicationModal);
     m_view->setAttribute(Qt::WA_QuitOnClose, false);
     m_view->setWindowIcon( QIcon(":/images/icon.png") );
     m_view->setWindowTitle("SaK - Sistema Anti Kazzeggio");
-    
+
     int v = durationSpinBox->value();
     v = qMax(1, qMin(1440, v));
     m_currentInterval = Task::value( (double)v/60.0 );
     qDebug() << "SAK: pinging interval " <<  v << Task::hours(m_currentInterval) << " hours ";
 
+    populateHitsList(createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
 }
 
 void Sak::start()
@@ -294,9 +305,13 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
 {
     if (obj == tasksTree) {
         return settingsEventFilter(e);
-    } else if (obj == hitsList) {
+    } else if (obj == hitsList || obj == summaryList) {
         return hitsListEventFilter(e);
-    } else if (obj == m_settings && e->type() == QEvent::Close) {
+    }/* else if (obj == summaryList && e->type() == QEvent::Show) {
+        m_editedTasks = m_tasks;
+        populateHitsList(createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
+        return false;
+    }*/ else if (obj == m_settings && e->type() == QEvent::Close) {
         if (trayIcon->isVisible()) {
             QMessageBox::information(m_settings, tr("Systray"),
                                      tr("The program will keep running in the "
@@ -311,7 +326,6 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
         QKeyEvent* ke = dynamic_cast<QKeyEvent*>(e);
         if ((ke->modifiers() & Qt::AltModifier) && (ke->modifiers() &  Qt::ControlModifier) ) {
             clearView();
-
             return true;
         }
     } else if (obj == m_view && e->type() == QEvent::Show) {
@@ -358,13 +372,18 @@ void Sak::populateTasks()
         item->setData(0, Qt::UserRole, QVariant(QMetaType::VoidStar, &t));
         QIcon icon;
         icon.addPixmap(t.icon);
-        item->setSizeHint(0, QSize(32, 32));
+        item->setSizeHint(0, QSize(32,32));
         item->setIcon(0, icon);
         item->setForeground(0,t.fgColor);
         item->setBackground(0,t.bgColor);
+        //item->setCheckState(1, t.active ? Qt::Checked : Qt::Unchecked);
+        //item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setIcon(1,QIcon(t.active ? ":/images/active.png" : ":/images/inactive.png"));
         item->setForeground(1,t.fgColor);
         item->setBackground(1,t.bgColor);
-        item->setText(1,QString("%1 hours worked till now (overestimated %2)").arg(t.totHours).arg(t.totOverestimation));
+        item->setForeground(2,t.fgColor);
+        item->setBackground(2,t.bgColor);
+        item->setText(2,QString("%1 hours worked till now (overestimated %2)").arg(t.totHours).arg(t.totOverestimation));
         tasksTree->addTopLevelItem(item);
     }
 }
@@ -480,6 +499,20 @@ void Sak::selectedTask()
     currentTask = t.title;
 }
 
+void Sak::doubleClickedTask(QTreeWidgetItem* i, int column)
+{
+    if (column == 1) {
+        QHash<QString, Task>::iterator itr = m_tasks.find(i->text(0));
+        Q_ASSERT(itr != m_tasks.end());
+        bool& active ( itr.value().active );
+        active = !active;
+        i->setIcon(column, active ? QIcon(":/images/active.png") : QIcon(":/images/inactive.png"));
+        ((QTreeWidget*)sender())->update();
+    }
+}
+
+
+
 void Sak::timerEvent(QTimerEvent* e)
 {
     if (e->timerId() == m_timerId) {
@@ -508,10 +541,10 @@ void Sak::timerEvent(QTimerEvent* e)
 void Sak::clearView()
 {
     if (!m_view) return;
-    m_view->close();
     QGraphicsScene* s = m_view->scene();
     QList<QGraphicsItem*> items = m_view->items();
     s->deleteLater();
+    m_view->close();
     m_view->setScene(new QGraphicsScene);
     m_view->scene()->setSceneRect(QDesktopWidget().geometry());
     m_previewing = false;
@@ -716,29 +749,33 @@ void Sak::popup()
     QHash<QString, double> monthStats;
 
     foreach(const Task& t,  m_tasks.values()) {
-        double m = t.workedHours(fromMonth, now);
-        monthStats[t.title] = m;
-        monthHits += m;
-        double w = t.workedHours(fromWeek, now);
-        weekStats[t.title] = w;
-        weekHits += w;
-        double d = t.workedHours(fromToday, now);
-        dayStats[t.title] = d;
-        dayHits += d;
+        if (t.active) {
+            double m = t.workedHours(fromMonth, now);
+            monthStats[t.title] = m;
+            monthHits += m;
+            double w = t.workedHours(fromWeek, now);
+            weekStats[t.title] = w;
+            weekHits += w;
+            double d = t.workedHours(fromToday, now);
+            dayStats[t.title] = d;
+            dayHits += d;
+        }
     }
 
     QMultiMap<double, SakWidget*> m_widgets;
     foreach(const Task& t,  m_tasks.values()) {
-        SakWidget* test = new SakWidget(t);
-        test->setVisible(false);
-        double d = dayStats[t.title];
-        double w = weekStats[t.title];
-        double m = monthStats[t.title];
-        test->setStatistics(d, w, m, d/dayHits * 100.0, w/weekHits * 100.0, m/monthHits * 100.0);
-        test->setObjectName(t.title);
-        connect (test, SIGNAL(clicked()), this, SLOT(workingOnTask()));
-        // check this criterion!!
-        m_widgets.insertMulti( - w, test);
+        if (t.active) {
+            SakWidget* test = new SakWidget(t);
+            test->setVisible(false);
+            double d = dayStats[t.title];
+            double w = weekStats[t.title];
+            double m = monthStats[t.title];
+            test->setStatistics(d, w, m, d/dayHits * 100.0, w/weekHits * 100.0, m/monthHits * 100.0);
+            test->setObjectName(t.title);
+            connect (test, SIGNAL(clicked()), this, SLOT(workingOnTask()));
+            // check this criterion!!
+            m_widgets.insertMulti( - w, test);
+        }
     }
 
     const QList<SakWidget*>& values = m_widgets.values();
@@ -756,7 +793,6 @@ void Sak::popup()
     sakMessage->show();
 
     // add the exit item
-
     SakExitItem* exitItem = new SakExitItem(QPixmap(":/images/exit.png"));
     QRect r = QDesktopWidget().geometry();
     connect(exitItem, SIGNAL(exit()), this, SLOT(clearView()));
@@ -765,7 +801,7 @@ void Sak::popup()
     exitItem->setZValue(1e8);
     exitItem->show();
 
-//    m_view->showFullScreen();
+    //    m_view->showFullScreen();
     m_view->setGeometry( qApp->desktop()->screenGeometry() );
     m_view->show();
     m_view->raise();
@@ -798,8 +834,10 @@ void Sak::setupSettingsWidget()
     tab1 = new QWidget;
     tab2 = new QWidget;
     tab3 = new QWidget;
+    tab4 = new QWidget;
     tabs->addTab(tab1, "Tasks");
     tabs->addTab(tab2, "General");
+    tabs->addTab(tab4, "Statistics");
     tabs->addTab(tab3, "Advanced");
 
     createActions();
@@ -869,9 +907,12 @@ void Sak::setupSettingsWidget()
     // create tree view
     tasksTree = new QTreeWidget;
     tasksTree->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    tasksTree->setColumnCount(2);
+    tasksTree->setColumnCount(3);
     tasksTree->setColumnWidth(0, 300);
+    tasksTree->setColumnWidth(1, 65);
     tasksTree->setIconSize(QSize(32,32));
+    connect(tasksTree, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)), this, SLOT(doubleClickedTask(QTreeWidgetItem*,int)));
+
     
     taskTextEditor = new QTextEdit;
     taskTextEditor->setFixedHeight(130);
@@ -906,6 +947,31 @@ void Sak::setupSettingsWidget()
     
     mainLayout->addLayout(detailsLayout);
 
+    QVBoxLayout* tab4MainLayout = new QVBoxLayout(tab4);
+    //taskSelector = new QComboBox;
+    summaryList = newTaskSummaryList();
+    QTabWidget* tabs = new QTabWidget;
+    tabs->setTabPosition(QTabWidget::East);
+    tabs->addTab(summaryList, "List");
+    QGraphicsView* summaryView = new QGraphicsView;
+    summaryView->setScene(new QGraphicsScene);
+    TaskSummaryPieChart* chart = new TaskSummaryPieChart;
+    summaryView->scene()->addItem(new TaskSummaryPieChart);
+    summaryView->centerOn(chart);
+    tabs->addTab(summaryView, "Chart");
+    tab4MainLayout->addWidget(tabs);
+    cal3 = new QCalendarWidget;
+    cal3->setMinimumSize(QSize(250,200));
+    cal4 = new QCalendarWidget;
+    cal4->setMinimumSize(QSize(250,200));
+    cal3->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
+    cal4->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
+    QHBoxLayout* calsLayout = new QHBoxLayout;
+    calsLayout->addWidget(cal3);
+    calsLayout->addWidget(cal4);
+    cal4->setSelectedDate(QDate::currentDate().addDays(1));
+    tab4MainLayout->addLayout(calsLayout);
+
 
     QVBoxLayout* tab3MainLayout = new QVBoxLayout(tab3);
     //taskSelector = new QComboBox;
@@ -917,12 +983,15 @@ void Sak::setupSettingsWidget()
     cal1->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
     cal2->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
     //tab3MainLayout->addWidget(taskSelector);
-    tab3MainLayout->addWidget(hitsList);
-    QHBoxLayout* calsLayout = new QHBoxLayout;
+
+    calsLayout = new QHBoxLayout;
     calsLayout->addWidget(cal1);
     calsLayout->addWidget(cal2);
     cal2->setSelectedDate(QDate::currentDate().addDays(1));
+    tab3MainLayout->addWidget(hitsList);
     tab3MainLayout->addLayout(calsLayout);
+
+
 
     m_settings->setWindowTitle(tr("SaK"));
     m_settings->resize(400, 300);
@@ -949,6 +1018,23 @@ QTreeWidget* Sak::newHitsList()
     hitsList->setHeaderItem(header);
     hitsList->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
     return hitsList;
+}
+
+QTreeWidget* Sak::newTaskSummaryList()
+{
+    QTreeWidget* taskSummaryList = new QTreeWidget;
+    taskSummaryList->setColumnCount(4);
+    taskSummaryList->setColumnWidth(0, 250);
+    taskSummaryList->setColumnWidth(1, 150);
+    taskSummaryList->setIconSize(QSize(24,24));
+    taskSummaryList->setSortingEnabled(true);
+    QTreeWidgetItem* header = new QTreeWidgetItem;
+    header->setText(0, "Task");
+    header->setText(1, "Hours");
+    taskSummaryList->setHeaderItem(header);
+    taskSummaryList->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
+    taskSummaryList->setEnabled(true);
+    return taskSummaryList;
 }
 
 void Sak::setVisible(bool visible)

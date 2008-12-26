@@ -19,9 +19,10 @@ class SakWidget : public QObject, public QGraphicsItem
     Q_OBJECT;
 public:
     SakWidget(const Task& task);
+    ~SakWidget();
     void setGeometry(const QRect&);
     void setStatistics(double dailyWorked, double weeklyWorked, double monthlyWorked, double dailyPercentage, double weeklyPercentage, double monthlyPercentage);
-    QRectF boundingRect() const { return m_rect;  };
+    QRectF boundingRect() const { return m_rect;  }
 public slots:
     void showDetails(bool show = true);
 signals:

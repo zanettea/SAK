@@ -167,6 +167,22 @@ QList<Hit> Sak::createHitsList(const QDateTime& from , const QDateTime& to )
 }
 
 
+QMap<double,Task*> Sak::createSummaryList(const QList<Hit>& hits)
+{
+    QHash<Task*, double> summaryMap;
+    foreach(const Hit& hit, hits) {
+        summaryMap[hit.task] += Task::hours(hit.duration);
+    }
+    QMap<double, Task*> summaryOrderedMap;
+    QHash<Task*, double>::const_iterator itr = summaryMap.begin();
+    while(itr != summaryMap.end()) {
+       summaryOrderedMap.insertMulti(itr.value(), itr.key());
+       itr++;
+    }
+    return summaryOrderedMap;
+}
+
+
 
 void Sak::saveHitChanges()
 {
@@ -176,6 +192,7 @@ void Sak::saveHitChanges()
             m_tasks = m_editedTasks;
         }
         m_changedHit=false;
+        populateHitsList(createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
     }
 }
 
@@ -198,10 +215,10 @@ bool Sak::hitsListEventFilter(QEvent* e)
         return true;
     } else if (e->type() == QEvent::Hide) {
         saveHitChanges();
-    } else if (e->type() == QEvent::Show) {
+    } /*else if (e->type() == QEvent::Show) {
         m_editedTasks = m_tasks;
-        populateHitsList(hitsList, createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
-    }
+        populateHitsList(createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
+    }*/
     return false;
 }
 
@@ -211,11 +228,16 @@ void Sak::selectedStartDate(const QDate& date)
     if (sender() != cal1) {
         cal1->setSelectedDate(date);
     }
+    if (sender() != cal3) {
+        cal3->setSelectedDate(date);
+    }
     if (cal2->selectedDate() < cal1->selectedDate()) {
         cal2->setSelectedDate(date);
+        cal4->setSelectedDate(date);
     }
     cal2->setMinimumDate(date);
-    populateHitsList(hitsList, createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
+    cal4->setMinimumDate(date);
+    populateHitsList(createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
 }
 
 void Sak::selectedEndDate(const QDate& date)
@@ -223,10 +245,14 @@ void Sak::selectedEndDate(const QDate& date)
     if (sender() != cal2) {
         cal2->setSelectedDate(date);
     }
+    if (sender() != cal4) {
+        cal4->setSelectedDate(date);
+    }
     if (cal1->selectedDate() > date) {
         cal2->setSelectedDate(cal1->selectedDate());
+        cal4->setSelectedDate(cal1->selectedDate());
     }
-    populateHitsList(hitsList, createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
+    populateHitsList(createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
 }
 
 
@@ -277,8 +303,9 @@ void Sak::hitsListItemChanged(QTreeWidgetItem* i, int column)
 
 //static int HitMetatype = qRegisterMetaType<Hit>("Hit");
 
-void Sak::populateHitsList(QTreeWidget* theHitsList, const QList<Hit>& hits)
+void Sak::populateHitsList(const QList<Hit>& hits)
 {
+    QTreeWidget* theHitsList = hitsList;
     saveHitChanges();
     theHitsList->clear();
 
@@ -309,12 +336,28 @@ void Sak::populateHitsList(QTreeWidget* theHitsList, const QList<Hit>& hits)
         i++;
     }
     theHitsList->addTopLevelItems(widgets);
+
+    widgets.clear();
+    theHitsList = summaryList;
+    theHitsList->clear();
+    const QMap<double, Task*>& map(createSummaryList(hits));
+    QMap<double,Task*>::const_iterator itr = map.begin();
+    while(itr != map.end()) {
+        QTreeWidgetItem* w = new QTreeWidgetItem(QTreeWidgetItem::UserType);
+        w->setText(0, itr.value()->title);
+        w->setIcon(0, itr.value()->icon);
+        w->setText(1, QString("%1").arg(itr.key(), 4, 'f', 1, ' '));
+        //w->setFlags(w->flags() & (!Qt::ItemIsEditable));
+        widgets<< w;
+        itr++;
+    }
+    theHitsList->addTopLevelItems(widgets);
 }
+
 
 void Sak::interactiveMergeHits()
 {
     if (!m_incremental->foundPieces.count()) return;
-    m_editedTasks=m_tasks;
     QDialog mergeDialog;
     mergeDialog.setWindowTitle("Merge sparse hits");
     mergeDialog.setModal(true);
@@ -341,7 +384,7 @@ void Sak::interactiveMergeHits()
     }
 
     qDebug() << "hits: " << hits.count();
-    populateHitsList(theHitsList, hits.values());
+    populateHitsList(hits.values());
     mergeDialog.setMinimumWidth(750);
     mergeDialog.setMinimumHeight(600);
     QVBoxLayout mainLayout(&mergeDialog);

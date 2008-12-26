@@ -20,6 +20,7 @@ SakMessageItem::SakMessageItem(const QString& message) : QGraphicsItem(0) {
 
 SakMessageItem::~SakMessageItem()
 {
+     delete m_p;
      delete m_t;
 }
 

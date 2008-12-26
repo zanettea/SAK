@@ -8,6 +8,7 @@ QDataStream & operator<< ( QDataStream & out, const Task & task )
     out << task.icon;
     out << task.bgColor;
     out << task.fgColor;
+    out << task.active;
     out << task.hits;
     return out;
 }
@@ -19,6 +20,7 @@ QDataStream & operator>> ( QDataStream & in, Task & task )
     in >> task.icon;
     in >> task.bgColor;
     in >> task.fgColor;
+    in >> task.active;
     in >> task.hits;
     return in;
 }

@@ -54,7 +54,13 @@ SakWidget::SakWidget(const Task& task)
     m_redrawCachedPixmap=true;
     m_redrawCachedPixmapB=true;
     redrawPixmaps();
-};
+}
+
+SakWidget::~SakWidget()
+{
+    delete m_text;
+}
+
 
 
 void SakWidget::setStatistics(double dailyWorked, double weeklyWorked, double monthlyWorked, double dailyPercentage, double weeklyPercentage, double monthlyPercentage)

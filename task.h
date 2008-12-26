@@ -8,12 +8,13 @@
 
 struct Task
 {
-    Task() : bgColor(Qt::white), fgColor(Qt::black), totHours(0) {}
+    Task() : bgColor(Qt::white), fgColor(Qt::black), active(true), totHours(0) {}
     QString title;
     QPixmap icon;
     QString description;
     QColor bgColor, fgColor;
     QList< QPair<QDateTime, quint8> > hits;
+    bool active;
 //     int findHit(QDateTime, quint8);
     double totHours, totOverestimation;
     double workedHours(const QDateTime& from, const QDateTime& to) const;
