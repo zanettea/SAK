@@ -66,7 +66,7 @@ protected slots:
     void selectedStartDate(const QDate& date);
     void selectedEndDate(const QDate& date);
     void hitsListItemChanged(QTreeWidgetItem*, int column);
-    void populateHitsList(const QList<Hit>&);
+    void populateHitsList(const QList<Hit>&, QTreeWidget* t = 0);
     void addDefaultHit();
     void interactiveMergeHits();
 private:

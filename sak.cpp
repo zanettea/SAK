@@ -66,6 +66,7 @@ Sak::Sak(QObject* parent)
     , m_settings(0)
     , m_changedHit(false)
 {
+    summaryList = hitsList = 0;
 #ifndef Q_OS_LINUX
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, "%APPDATA%");
 #endif

@@ -303,9 +303,11 @@ void Sak::hitsListItemChanged(QTreeWidgetItem* i, int column)
 
 //static int HitMetatype = qRegisterMetaType<Hit>("Hit");
 
-void Sak::populateHitsList(const QList<Hit>& hits)
+void Sak::populateHitsList(const QList<Hit>& hits, QTreeWidget* theHitsList )
 {
-    QTreeWidget* theHitsList = hitsList;
+    if (theHitsList == 0)
+        theHitsList = hitsList;
+    Q_ASSERT(theHitsList);
     saveHitChanges();
     theHitsList->clear();
 
@@ -338,20 +340,23 @@ void Sak::populateHitsList(const QList<Hit>& hits)
     theHitsList->addTopLevelItems(widgets);
 
     widgets.clear();
-    theHitsList = summaryList;
-    theHitsList->clear();
-    const QMap<double, Task*>& map(createSummaryList(hits));
-    QMap<double,Task*>::const_iterator itr = map.begin();
-    while(itr != map.end()) {
-        QTreeWidgetItem* w = new QTreeWidgetItem(QTreeWidgetItem::UserType);
-        w->setText(0, itr.value()->title);
-        w->setIcon(0, itr.value()->icon);
-        w->setText(1, QString("%1").arg(itr.key(), 4, 'f', 1, ' '));
-        //w->setFlags(w->flags() & (!Qt::ItemIsEditable));
-        widgets<< w;
-        itr++;
+
+    if (summaryList) {
+        theHitsList = summaryList;
+        theHitsList->clear();
+        const QMap<double, Task*>& map(createSummaryList(hits));
+        QMap<double,Task*>::const_iterator itr = map.begin();
+        while(itr != map.end()) {
+            QTreeWidgetItem* w = new QTreeWidgetItem(QTreeWidgetItem::UserType);
+            w->setText(0, itr.value()->title);
+            w->setIcon(0, itr.value()->icon);
+            w->setText(1, QString("%1").arg(itr.key(), 4, 'f', 1, ' '));
+            //w->setFlags(w->flags() & (!Qt::ItemIsEditable));
+            widgets<< w;
+            itr++;
+        }
+        theHitsList->addTopLevelItems(widgets);
     }
-    theHitsList->addTopLevelItems(widgets);
 }
 
 
@@ -384,7 +389,7 @@ void Sak::interactiveMergeHits()
     }
 
     qDebug() << "hits: " << hits.count();
-    populateHitsList(hits.values());
+    populateHitsList(hits.values(), theHitsList);
     mergeDialog.setMinimumWidth(750);
     mergeDialog.setMinimumHeight(600);
     QVBoxLayout mainLayout(&mergeDialog);
