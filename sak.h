@@ -76,6 +76,8 @@ private:
     QHash<QString, Task> m_tasks;
     QHash<QString, Task> m_editedTasks;
     QMultiMap<int, SakWidget*> m_widgets;
+    QMap<int, SakWidget*>::iterator m_widgetsIterator;
+    QList<QString> m_taskSelectionHistory;
     quint8 m_currentInterval;
 
     bool m_previewing;

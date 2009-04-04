@@ -27,7 +27,8 @@ public slots:
     void showDetails(bool show = true);
 signals:
     void clicked();
-protected:
+public:
+    void keyPressEvent (QKeyEvent * event);
     void mousePressEvent(QGraphicsSceneMouseEvent* e);
     void mouseReleaseEvent(QGraphicsSceneMouseEvent* e);
     void mouseMoveEvent(QGraphicsSceneMouseEvent* e);

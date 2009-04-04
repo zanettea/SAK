@@ -3,6 +3,7 @@
  *   zanettea@gmail.com                                                    *
  ***************************************************************************/
 
+
 #include <QtGui>
 #include <QSettings>
 
@@ -16,6 +17,18 @@
 
 // GView
 #include <QtOpenGL>
+
+#if defined(Q_WS_X11)
+#include <QX11Info>
+namespace X11
+{
+#include <X11/Xlib.h>
+#undef KeyPress
+#undef KeyRelease
+}
+#endif
+
+
 
 class MyGL : public QGLWidget
 {
@@ -197,6 +210,7 @@ void Sak::stop()
         stopAction->setEnabled(false);
         startAction->setEnabled(true);
     } else {
+
         stopAction->setEnabled(true);
         startAction->setEnabled(false);
     }
@@ -323,13 +337,44 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
             e->ignore();
             return true;
         }
-    } else if (obj == m_view && e->type() == QEvent::KeyPress) {
+    } else if (obj == m_view && e->type() == QEvent::KeyPress ) {
         QKeyEvent* ke = dynamic_cast<QKeyEvent*>(e);
         if ((ke->modifiers() & Qt::AltModifier) && (ke->modifiers() &  Qt::ControlModifier) ) {
             clearView();
             return true;
+        } else if (ke->key() == Qt::Key_Left) {
+            if (m_widgetsIterator == m_widgets.end()) return false;
+            SakWidget* currentShowing = m_widgetsIterator != m_widgets.end() ? m_widgetsIterator.value() : 0;
+            if (m_widgetsIterator == m_widgets.begin()) m_widgetsIterator = m_widgets.end();
+            m_widgetsIterator--;
+            if (m_widgetsIterator != m_widgets.end()) {
+                currentShowing->showDetails(false);
+                m_widgetsIterator.value()->showDetails(true);
+            }
+            return true;
+        } else if (ke->key() == Qt::Key_Right) {
+            if (m_widgetsIterator == m_widgets.end()) return false;
+            SakWidget* currentShowing = m_widgetsIterator.value();
+            m_widgetsIterator++;
+            if (m_widgetsIterator == m_widgets.end()) m_widgetsIterator = m_widgets.begin();
+            if (m_widgetsIterator != m_widgets.end()) {
+                currentShowing->showDetails(false);
+                m_widgetsIterator.value()->showDetails(true);
+            }
+            return true;
+        } else { // forward events to current widget
+            if (m_widgetsIterator == m_widgets.end()) return false;
+            SakWidget* currentShowing = m_widgetsIterator.value();
+            currentShowing->keyPressEvent(ke);
+            return true;
         }
     } else if (obj == m_view && e->type() == QEvent::Show) {
+#if defined(Q_WS_X11)
+        // make sure the application has focus to accept keyboard inputs
+        qDebug() << QX11Info::appRootWindow(QX11Info::appScreen());
+        X11::XSetInputFocus((X11::Display*)QX11Info::display(), QX11Info::appRootWindow(QX11Info::appScreen()),  RevertToParent, CurrentTime);
+        X11::XFlush((X11::Display*)QX11Info::display());
+#endif
         m_view->grabKeyboard();
     } else if (obj == m_view && e->type() == QEvent::Close) {
         if (trayIcon->isVisible()) {
@@ -559,6 +604,12 @@ void Sak::workingOnTask()
         if (w && m_tasks.contains(w->objectName())) {
             Task& t = m_tasks[w->objectName()];
 
+            int historyIndex = m_taskSelectionHistory.indexOf(t.title);
+            if (historyIndex != -1) {
+                m_taskSelectionHistory.takeAt(historyIndex);
+            }
+            m_taskSelectionHistory.push_back(t.title);
+
             QDateTime now = QDateTime::currentDateTime();
             QHash<QString, Task>::iterator itr = m_tasks.begin();
             while( itr != m_tasks.end() ) {
@@ -594,6 +645,8 @@ void layoutInSquare( QList<SakWidget*> sortedWidgets, QRect rect, char attractor
 {
     int w = rect.width();
     if (rect.width() < 64) return;
+    int maxw = qMin(350, w/2);
+    QSize size(maxw, maxw);
     if (sortedWidgets.count() == 0) {
         return;
     } else if (sortedWidgets.count() == 1) {
@@ -616,8 +669,8 @@ void layoutInSquare( QList<SakWidget*> sortedWidgets, QRect rect, char attractor
             off1 = QPoint(0,0);
             off2 = QPoint(0,w/2);
         }
-        sortedWidgets[0]->setGeometry(QRect(rect.topLeft() + off1, QSize(w/2, w/2)));
-        sortedWidgets[1]->setGeometry(QRect(rect.topLeft() + off2, QSize(w/2, w/2)));
+        sortedWidgets[0]->setGeometry(QRect(rect.topLeft() + off1, size));
+        sortedWidgets[1]->setGeometry(QRect(rect.topLeft() + off2, size));
     } else if (sortedWidgets.count() == 3) {
         QPoint off1, off2, off3;
         if (attractor == 'T' || attractor == 'C') {
@@ -637,18 +690,18 @@ void layoutInSquare( QList<SakWidget*> sortedWidgets, QRect rect, char attractor
             off2 = QPoint(0,w/2);
             off3 = QPoint(w/2,w/4);
         }
-        sortedWidgets[0]->setGeometry(QRect(rect.topLeft() + off1, QSize(w/2, w/2)));
-        sortedWidgets[1]->setGeometry(QRect(rect.topLeft() + off2, QSize(w/2, w/2)));
-        sortedWidgets[2]->setGeometry(QRect(rect.topLeft() + off3, QSize(w/2, w/2)));
+        sortedWidgets[0]->setGeometry(QRect(rect.topLeft() + off1, size));
+        sortedWidgets[1]->setGeometry(QRect(rect.topLeft() + off2, size));
+        sortedWidgets[2]->setGeometry(QRect(rect.topLeft() + off3, size));
     } else if (sortedWidgets.count() == 4) {
         QPoint off1(0,0);
         QPoint off2(0,w/2);
         QPoint off3(w/2,0);
         QPoint off4(w/2,w/2);
-        sortedWidgets[0]->setGeometry(QRect(rect.topLeft() + off1, QSize(w/2, w/2)));
-        sortedWidgets[1]->setGeometry(QRect(rect.topLeft() + off2, QSize(w/2, w/2)));
-        sortedWidgets[2]->setGeometry(QRect(rect.topLeft() + off3, QSize(w/2, w/2)));
-        sortedWidgets[3]->setGeometry(QRect(rect.topLeft() + off4, QSize(w/2, w/2)));
+        sortedWidgets[0]->setGeometry(QRect(rect.topLeft() + off1, size));
+        sortedWidgets[1]->setGeometry(QRect(rect.topLeft() + off2, size));
+        sortedWidgets[2]->setGeometry(QRect(rect.topLeft() + off3, size));
+        sortedWidgets[3]->setGeometry(QRect(rect.topLeft() + off4, size));
     } else {
         Q_ASSERT(sortedWidgets.count() <= 4);
     }
@@ -659,20 +712,22 @@ void layoutInRect( QList<SakWidget*> sortedWidgets, QRect rect, char attractor)
     if (sortedWidgets.count() == 0) return;
     int h = rect.height();
     int w = rect.width();
+    int maxh = qMin(350, h);
+    int maxw = qMin(350, w);
     if (sortedWidgets.count() == 1) {
         if (w>h) {
-            sortedWidgets[0]->setGeometry(QRect(rect.topLeft() + QPoint(h/2,0), QSize(h,h)));
+            sortedWidgets[0]->setGeometry(QRect(rect.topLeft() + QPoint((w-maxh)/2,(h-maxh)/2), QSize(maxh,maxh)));
         } else {
-            sortedWidgets[0]->setGeometry(QRect(rect.topLeft() + QPoint(0,w/2), QSize(w,w)));
+            sortedWidgets[0]->setGeometry(QRect(rect.topLeft() + QPoint((w-maxw)/2,(h-maxw)/2), QSize(maxw,maxw)));
         }
         return;
     } else if (sortedWidgets.count() == 2) {
         if (w>h) {
-            sortedWidgets[0]->setGeometry(QRect(rect.topLeft(), QSize(h,h)));
-            sortedWidgets[1]->setGeometry(QRect(rect.topLeft() + QPoint(h,0), QSize(h,h)));
+            sortedWidgets[0]->setGeometry(QRect(rect.topLeft() + QPoint(w/2-maxh,(h-maxh)/2), QSize(maxh,maxh)));
+            sortedWidgets[1]->setGeometry(QRect(rect.topLeft() + QPoint(w/2,(h-maxh)/2), QSize(maxh,maxh)));
         } else {
-            sortedWidgets[0]->setGeometry(QRect(rect.topLeft(), QSize(w,w)));
-            sortedWidgets[1]->setGeometry(QRect(rect.topLeft() + QPoint(0,w), QSize(w,w)));
+            sortedWidgets[0]->setGeometry(QRect(rect.topLeft() + QPoint((h-maxw)/2,w-maxw), QSize(w,w)));
+            sortedWidgets[1]->setGeometry(QRect(rect.topLeft() + QPoint((h-maxw)/2,w/2), QSize(maxw,maxw)));
         }
         return;
     }
@@ -763,20 +818,27 @@ void Sak::popup()
         }
     }
 
-    QMultiMap<double, SakWidget*> m_widgets;
+    m_widgets.clear();
     foreach(const Task& t,  m_tasks.values()) {
-        if (t.active) {
-            SakWidget* test = new SakWidget(t);
-            test->setVisible(false);
-            double d = dayStats[t.title];
-            double w = weekStats[t.title];
-            double m = monthStats[t.title];
-            test->setStatistics(d, w, m, d/dayHits * 100.0, w/weekHits * 100.0, m/monthHits * 100.0);
-            test->setObjectName(t.title);
-            connect (test, SIGNAL(clicked()), this, SLOT(workingOnTask()));
-            // check this criterion!!
-            m_widgets.insertMulti( - w, test);
-        }
+        if (!t.active) continue;
+        SakWidget* test = new SakWidget(t);
+        test->setVisible(false);
+        double d = dayStats[t.title];
+        double w = weekStats[t.title];
+        double m = monthStats[t.title];
+        test->setStatistics(d, w, m, d/dayHits * 100.0, w/weekHits * 100.0, m/monthHits * 100.0);
+        test->setObjectName(t.title);
+        connect (test, SIGNAL(clicked()), this, SLOT(workingOnTask()));
+        int historyPosition = 1 + m_taskSelectionHistory.indexOf(t.title);
+        int rank = historyPosition != 0 ? -1000000 * historyPosition : -d;
+        m_widgets.insertMulti( rank, test);
+    }
+
+    qDebug() << m_taskSelectionHistory;
+
+    m_widgetsIterator = m_widgets.begin();
+    if (m_widgetsIterator != m_widgets.end()) {
+        m_widgetsIterator.value()->showDetails(true);
     }
 
     const QList<SakWidget*>& values = m_widgets.values();
@@ -802,8 +864,7 @@ void Sak::popup()
     exitItem->setZValue(1e8);
     exitItem->show();
 
-    //    m_view->showFullScreen();
-    m_view->setGeometry( qApp->desktop()->screenGeometry() );
+    m_view->setGeometry( QRect(qApp->desktop()->screenGeometry()) );
     m_view->show();
     m_view->raise();
     m_view->setFocus();

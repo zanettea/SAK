@@ -145,12 +145,16 @@ void SakWidget::setGeometry(const QRect& geom) {
     redrawPixmaps();
 }
 
+void SakWidget::keyPressEvent ( QKeyEvent * event ) {
+    if (event->key() == Qt::Key_Return) { event->accept(); emit clicked(); }
+    else if (event->key() == Qt::Key_Space) { event->accept(); showDetails(!m_showingDetails); }
+}
+
 
 void SakWidget::mousePressEvent(QGraphicsSceneMouseEvent* e)
 {
     m_lastPoint = e->screenPos();
 }
-
 
 void SakWidget::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* )
 {
