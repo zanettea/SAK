@@ -25,6 +25,8 @@ namespace X11
 #include <X11/Xlib.h>
 #undef KeyPress
 #undef KeyRelease
+static Window CurrentFocusWindow;
+static int CurrentRevertToReturn;
 }
 #endif
 
@@ -371,7 +373,7 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
     } else if (obj == m_view && e->type() == QEvent::Show) {
 #if defined(Q_WS_X11)
         // make sure the application has focus to accept keyboard inputs
-        qDebug() << QX11Info::appRootWindow(QX11Info::appScreen());
+        XGetInputFocus((X11::Display*)QX11Info::display(), &X11::CurrentFocusWindow, &X11::CurrentRevertToReturn);
         X11::XSetInputFocus((X11::Display*)QX11Info::display(), QX11Info::appRootWindow(QX11Info::appScreen()),  RevertToParent, CurrentTime);
         X11::XFlush((X11::Display*)QX11Info::display());
 #endif
@@ -595,6 +597,11 @@ void Sak::clearView()
     m_view->scene()->setSceneRect(QDesktopWidget().geometry());
     m_previewing = false;
     m_view->releaseKeyboard();
+#if defined(Q_WS_X11)
+    X11::XSetInputFocus((X11::Display*)QX11Info::display(), X11::CurrentFocusWindow, X11::CurrentRevertToReturn, CurrentTime);
+    X11::XFlush((X11::Display*)QX11Info::display());
+#endif
+
 }
 
 void Sak::workingOnTask()
