@@ -113,20 +113,89 @@ void TaskItemDelegate::updateEditorGeometry(QWidget *editor,
 
 //END TaskItemDelegate
 
+
+//BEGIN SubTaskItemDelegate
+
+SubTaskItemDelegate::SubTaskItemDelegate(Sak* s, QObject *parent)
+: QItemDelegate(parent), m_sak(s)
+{
+}
+
+QWidget *SubTaskItemDelegate::createEditor(QWidget *parent,
+                                          const QStyleOptionViewItem &/* option */,
+                                          const QModelIndex & index ) const
+{
+    QComboBox *editor = new QComboBox(parent);
+    editor->setEditable(true);
+
+    int j = -1;
+    int i=0;
+    QString taskTitle = index.model()->index(index.row(), index.column()-1, index.parent()).data().toString();
+
+    QHash<QString, Task>::iterator titr = m_sak->tasks()->find(taskTitle);
+    if (titr == m_sak->tasks()->end()) {
+        return editor;
+    }
+    const Task& task(titr.value());
+
+    QString current = index.data().toString();
+    QHash< QString, Task::SubTask >::const_iterator itr = task.subTasks.begin(), end = task.subTasks.end();
+    for(int i=0; itr != end; itr++, i++) {
+        editor->addItem(itr->title);
+        if (itr->title == current)
+            j = i;
+    }
+
+    editor->setCurrentIndex(j);
+    return editor;
+}
+
+void SubTaskItemDelegate::setEditorData(QWidget *editor,
+                                       const QModelIndex &index) const
+{
+    const QString& value ( index.data().toString() );
+
+    QComboBox *e = static_cast<QComboBox*>(editor);
+    for(int i=0; i<e->count(); i++) {
+        if (e->itemText(i) == value) {
+            e->setCurrentIndex(i);
+            break;
+        }
+    }
+}
+
+void SubTaskItemDelegate::setModelData(QWidget *editor, QAbstractItemModel *model,
+                                      const QModelIndex &index) const
+{
+    QComboBox *e = static_cast<QComboBox*>(editor);
+    model->setData(index, e->currentText(), Qt::EditRole);
+    model->setData(index, e->itemIcon(e->currentIndex()), Qt::DecorationRole);
+}
+
+void SubTaskItemDelegate::updateEditorGeometry(QWidget *editor,
+                                              const QStyleOptionViewItem &option, const QModelIndex &/* index */) const
+{
+    editor->setGeometry(option.rect);
+}
+
+//END TaskItemDelegate
+
+
+
 void Sak::addDefaultHit()
 {
     QTreeWidgetItem* i = new QTreeWidgetItem;
-    QPair<QDateTime, quint8> p(QDateTime::currentDateTime(), 0);
-    i->setText(0, p.first.toString(DATETIMEFORMAT));
+    Task::Hit p(QDateTime::currentDateTime(), 0);
+    i->setText(0, p.timestamp.toString(DATETIMEFORMAT));
     i->setText(1, m_tasks.begin().key());
     i->setIcon(1, m_tasks.begin().value().icon);
     i->setSizeHint(0, QSize(32, 32));
-    i->setText(2, QString("%1").arg(p.second));
+    i->setText(3, QString("%1").arg(p.duration));
     i->setFlags(i->flags() | Qt::ItemIsEditable);
     hitsList->addTopLevelItem( i );
     m_changedHit=true;
-    m_editedTasks[i->text(1)].hits << p;
-    i->setData(1, Qt::UserRole, qVariantFromValue(Hit(&m_editedTasks[i->text(1)], p.first, p.second)));
+    m_editedTasks[i->text(1)].hits[i->text(2)] << p;
+    i->setData(1, Qt::UserRole, qVariantFromValue(HitElement(&m_editedTasks[i->text(1)], i->text(2), p.timestamp, p.duration)));
 }
 
 void Sak::exportHits()
@@ -142,7 +211,7 @@ void Sak::exportHits()
         QTreeWidgetItem* w = hitsList->topLevelItem ( i );
         QString name(w->text(1));
         QDateTime timestamp(QDateTime::fromString(w->text(0), DATETIMEFORMAT));
-        quint8 duration = w->text(2).toInt();
+        unsigned int duration = w->text(3).toInt();
         QHash<QString, Task>::iterator titr = m_tasks.find(name);
         stream << w->text(1) << ";" << w->text(0)  << ";" << w->text(2) << ";" << w->text(3) << ";\n";
     }
@@ -151,26 +220,30 @@ void Sak::exportHits()
 }
 
 
-QList<Hit> Sak::createHitsList(const QDateTime& from , const QDateTime& to )
+QList<HitElement> Sak::createHitsList(const QDateTime& from , const QDateTime& to )
 {
-    QMap<QDateTime, Hit> hits;
+    QMap<QDateTime, HitElement> hits;
     foreach(const Task& t, m_editedTasks) {
-        QList< QPair<QDateTime, quint8> >::const_iterator itr = t.hits.begin(), end = t.hits.end();
-        for (int i=0; i<t.hits.count(); i++) {
-            const QDateTime& d = t.hits[i].first;
-            if ( (!from.isValid() || d >= from) && ( !to.isValid() || d <= to) ) {
-                hits.insert(d, Hit((Task*)&t, t.hits[i].first, t.hits[i].second));
+        QHash<QString, QList< Task::Hit> > ::const_iterator hitr = t.hits.begin(), hend = t.hits.end();
+        while(hitr != hend) {
+            const QList< Task::Hit > & l(hitr.value());
+            for (int i=0; i<l.count(); i++) {
+                const QDateTime& d = l[i].timestamp;
+                if ( (!from.isValid() || d >= from) && ( !to.isValid() || d <= to) ) {
+                    hits.insert(d, HitElement((Task*)&t, hitr.key(), d, l[i].duration));
+                }
             }
+            hitr++;
         }
     }
     return hits.values();
 }
 
 
-QMap<double,Task*> Sak::createSummaryList(const QList<Hit>& hits)
+QMap<double,Task*> Sak::createSummaryList(const QList<HitElement>& hits)
 {
     QHash<Task*, double> summaryMap;
-    foreach(const Hit& hit, hits) {
+    foreach(const HitElement& hit, hits) {
         summaryMap[hit.task] += Task::hours(hit.duration);
     }
     QMap<double, Task*> summaryOrderedMap;
@@ -262,32 +335,31 @@ void Sak::hitsListItemChanged(QTreeWidgetItem* i, int column)
     m_changedHit = true;
     // save change in structure m_editedTasks
     {
-        const Hit& origHit = i->data(1, Qt::UserRole).value<Hit>();
+        const HitElement& origHit = i->data(1, Qt::UserRole).value<HitElement>();
         // find hit in m_editedTasks
         Q_ASSERT(origHit.task);
         Task& t(*origHit.task);
         Q_ASSERT(m_editedTasks.contains(t.title));
         Task& et(m_editedTasks[t.title]);
-        int hitPosition = et.hits.indexOf(QPair<QDateTime, quint8>(origHit.timestamp, origHit.duration));
-        Q_ASSERT(hitPosition != et.hits.size());
+
+        QList< Task::Hit >& origList(et.hits[origHit.subtask]);
+
+        int hitPosition = origList.indexOf(Task::Hit(origHit.timestamp, origHit.duration));
+        Q_ASSERT(hitPosition != origList.size());
         if (!m_editedTasks.contains(i->text(1))) {
             i->setText(1, t.title);
             qDebug() << "Task " << i->text(1) << " does not exists -> undo change";
-        } else if (i->text(1) != t.title) {
-            qDebug() << "remove hit from task " << t.title;
-            et.hits.takeAt(hitPosition);
-            qDebug() << "insert hit into task " << i->text(1);
-            Task& nt(m_editedTasks[i->text(1)]);
-            QPair<QDateTime,quint8> p( QDateTime::fromString(i->text(0), DATETIMEFORMAT), Task::value(i->text(2).toFloat()/60.0) );
-            i->setData(1, Qt::UserRole, qVariantFromValue(Hit(&nt, p.first, p.second)));
-            nt.hits << p;
         } else if (column == -1) {
             qDebug() << "remove hit from task " << t.title;
-            et.hits.takeAt(hitPosition);
+            origList.takeAt(hitPosition);
         } else {
-            qDebug() << "modify hit on task " << t.title;
-            et.hits[hitPosition] = QPair<QDateTime,quint8>( QDateTime::fromString(i->text(0), DATETIMEFORMAT), Task::value(i->text(2).toFloat()/60.0) );
-            i->setData(1, Qt::UserRole, qVariantFromValue(Hit(&et, et.hits[hitPosition].first, et.hits[hitPosition].second)));
+            qDebug() << "remove hit from task " << t.title;
+            origList.takeAt(hitPosition);
+            Task& nt(m_editedTasks[i->text(1)]);
+            Task::Hit p(QDateTime::fromString(i->text(0), DATETIMEFORMAT), Task::value(i->text(3).toFloat()/60.0));
+            i->setData(1, Qt::UserRole, qVariantFromValue(HitElement(&nt, i->text(2), p.timestamp, p.duration)));
+            qDebug() << "insert hit into task " << i->text(1) << p.timestamp;
+            nt.hits[i->text(2)] << p;
         }
     }
     if (column == 1) {
@@ -303,7 +375,7 @@ void Sak::hitsListItemChanged(QTreeWidgetItem* i, int column)
 
 //static int HitMetatype = qRegisterMetaType<Hit>("Hit");
 
-void Sak::populateHitsList(const QList<Hit>& hits, QTreeWidget* theHitsList )
+void Sak::populateHitsList(const QList<HitElement>& hits, QTreeWidget* theHitsList )
 {
     if (theHitsList == 0)
         theHitsList = hitsList;
@@ -313,22 +385,24 @@ void Sak::populateHitsList(const QList<Hit>& hits, QTreeWidget* theHitsList )
 
     QVector<double> o;
     double totOverestimation;
-    Hit::overestimations(hits, o, totOverestimation);
+    HitElement::overestimations(hits, o, totOverestimation);
     QList<QTreeWidgetItem*> widgets;
     int i=0;
-    foreach(const Hit& hit, hits) {
+    foreach(const HitElement& hit, hits) {
         QTreeWidgetItem* w = new QTreeWidgetItem;
         w->setText(0, hit.timestamp.toString(DATETIMEFORMAT));
         w->setText(1, hit.task->title);
         w->setSizeHint(0, QSize(24, 24));
         w->setData(1, Qt::UserRole, qVariantFromValue(hit));
-        w->setText(2, QString("%1").arg(Task::min(hit.duration)));
+        w->setText(2, hit.subtask);
+        w->setText(3, QString("%1").arg(Task::min(hit.duration)));
         if (o[i] != 0) {
             w->setBackground(0,Qt::red);
             w->setBackground(1,Qt::red);
             w->setBackground(2,Qt::red);
             w->setBackground(3,Qt::red);
-            w->setText(3,QString("%1").arg(o[i]));
+            w->setBackground(4,Qt::red);
+            w->setText(4,QString("%1").arg(o[i]));
         }
         w->setIcon(1, hit.task->icon);
         if (hit.editable)
@@ -367,21 +441,21 @@ void Sak::interactiveMergeHits()
     mergeDialog.setWindowTitle("Merge sparse hits");
     mergeDialog.setModal(true);
     QTreeWidget* theHitsList = newHitsList();
-    QMap<QDateTime, Hit> hits;
-    QMap<QDateTime, QPair<QString, quint8> >::iterator itr = m_incremental->foundPieces.begin();
+    QMap<QDateTime, HitElement> hits;
+    QMap<QDateTime, Incremental::Hit >::iterator itr = m_incremental->foundPieces.begin();
     while(itr != m_incremental->foundPieces.end()) {
-        QHash<QString, Task>::iterator titr = m_tasks.find(itr.value().first);
+        QHash<QString, Task>::iterator titr = m_tasks.find(itr.value().task);
         if (titr == m_tasks.end()) {
-            qDebug() << "Discard piece for unknown task " << itr.value().first;
+            qDebug() << "Discard piece for unknown task " << itr.value().task;
         } else {
-            hits.insertMulti(itr.key(), Hit(&titr.value(), itr.key(), itr.value().second));
+            hits.insertMulti(itr.key(), HitElement(&titr.value(), itr.value().subtask, itr.key(), itr.value().duration));
         }
         itr++;
     }
     if (hits.count() == 0) return;
 
     qDebug() << "hits: " << hits.count() << hits.begin().key() << (--hits.end()).key();
-    QList<Hit> okHits (createHitsList(hits.begin().key(), (--hits.end()).key()));
+    QList<HitElement> okHits (createHitsList(hits.begin().key(), (--hits.end()).key()));
     qDebug() << okHits.count();
     for(int i=0; i<okHits.count(); i++) {
         okHits[i].editable=false;
@@ -410,10 +484,10 @@ void Sak::interactiveMergeHits()
             if (!w->isDisabled()) {
                 QString name(w->text(1));
                 QDateTime timestamp(QDateTime::fromString(w->text(0), DATETIMEFORMAT));
-                quint8 duration (Task::value(w->text(2).toFloat()/60.0));
+                unsigned int duration (Task::value(w->text(3).toFloat()/60.0));
                 QHash<QString, Task>::iterator titr = m_tasks.find(name);
                 Q_ASSERT(titr != m_tasks.end());
-                (*titr).hits << QPair<QDateTime, quint8>(timestamp, duration);
+                (*titr).hits[w->text(2)] << Task::Hit(timestamp, duration);
             }
         }
         flush();

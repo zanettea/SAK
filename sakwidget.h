@@ -26,7 +26,8 @@ public:
 public slots:
     void showDetails(bool show = true);
 signals:
-    void clicked();
+    void clicked(const QString& taskName);
+    void clicked(const QString& taskName, const QString& subtaskName);
 public:
     void keyPressEvent (QKeyEvent * event);
     void mousePressEvent(QGraphicsSceneMouseEvent* e);

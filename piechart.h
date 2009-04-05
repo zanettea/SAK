@@ -8,7 +8,7 @@ class TaskSummaryPieChart : public QGraphicsItem
 public:
     QRectF boundingRect() const { return QRectF(-0.61,-0.6,1.2,1.2);}
     void setHits(const QMap<double, Task*>& hits)  { m_hits = hits; }
-    virtual void paint ( QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget ) {
+    virtual void paint ( QPainter * painter, const QStyleOptionGraphicsItem * /* option */, QWidget * /* widget */ ) {
         painter->save();
         QMap<double,Task*>::const_iterator itr = m_hits.begin(), end=m_hits.end();
         /*

@@ -146,8 +146,16 @@ void SakWidget::setGeometry(const QRect& geom) {
 }
 
 void SakWidget::keyPressEvent ( QKeyEvent * event ) {
-    if (event->key() == Qt::Key_Return) { event->accept(); emit clicked(); }
-    else if (event->key() == Qt::Key_Space) { event->accept(); showDetails(!m_showingDetails); }
+    if (event->key() == Qt::Key_Return && (event->modifiers() &  Qt::ControlModifier) ) {
+        event->accept();
+        emit clicked(m_task.title);
+    } else  if (event->key() == Qt::Key_Return && (event->modifiers() &  Qt::ShiftModifier) ) {
+        event->accept();
+        emit clicked(m_task.title, "");
+    } else if (event->key() == Qt::Key_Space) {
+        event->accept();
+        showDetails(!m_showingDetails);
+    }
 }
 
 
@@ -158,7 +166,7 @@ void SakWidget::mousePressEvent(QGraphicsSceneMouseEvent* e)
 
 void SakWidget::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* )
 {
-    emit clicked();
+    emit clicked(m_task.title);
 }
 
 void SakWidget::mouseReleaseEvent(QGraphicsSceneMouseEvent* )

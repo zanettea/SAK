@@ -6,44 +6,76 @@
 
 #define DATETIMEFORMAT "yyyy/MM/dd hh:mm:ss"
 
+
 struct Task
 {
+    struct SubTask
+    {
+        SubTask(const QString& t=QString()) : title(t) {}
+        QString title, description;
+        QColor bgColor, fgColor;
+    };
+
+    struct Hit
+    {
+        Hit(const QDateTime& t=QDateTime::currentDateTime(), unsigned int d=0)
+            : timestamp(t)
+            , duration(d) {}
+        QDateTime timestamp;
+        unsigned int duration;
+    };
+
     Task() : bgColor(Qt::white), fgColor(Qt::black), active(true), totHours(0) {}
-    QString title;
+    QString title, description;
     QPixmap icon;
-    QString description;
     QColor bgColor, fgColor;
-    QList< QPair<QDateTime, quint8> > hits;
+    QHash< QString, SubTask > subTasks;
+    QHash< QString, QList< Hit > > hits; // hits for each subtask
     bool active;
-//     int findHit(QDateTime, quint8);
+
     double totHours, totOverestimation;
     double workedHours(const QDateTime& from, const QDateTime& to) const;
     // also set totHours
     bool checkConsistency();
     // get hours from value
-    static double hours(quint8 v) { return (v < 120.0 ? ((double)v) : (120.0 + (v-120.0)*10.0)) / 60.0; }
-    static int min(quint8 v) { return (int)round(60.0 * hours(v)); }
+    static double hours(unsigned int v) { return (double)v/60.0; }
+    static int min(unsigned int v) { return v; }
     // get a value from a hour
-    static quint8 value(double h) { Q_ASSERT(h <= 24); double v = h*60.0; return (quint8)(v < 120.0 ? v : 120.0 + (v-120.0)/10.0); }
+    static unsigned int value(double h) { return (unsigned int)(60.0 * h); }
 };
 
-struct Hit
+static inline bool operator == (const Task::Hit& h1, const Task::Hit& h2) {
+    return  h1.timestamp == h2.timestamp && h1.duration == h2.duration;
+}
+
+// Used by gui
+struct HitElement
 {
     Task* task;
+    QString subtask;
     QDateTime timestamp;
-    quint8 duration;
+    unsigned int duration;
     bool editable;
-    Hit(Task* t = 0, const QDateTime& tt = QDateTime(), quint8 d=0, bool edit=true) : task(t), timestamp(tt), duration(d), editable(edit) {}
-    static double overestimations(const QList<Hit>&, QVector<double>&, double&);
-    bool operator<(const Hit& o) const {
+    HitElement(Task* t = 0, const QString& subtask = QString(), const QDateTime& tt = QDateTime(), unsigned int d=0, bool edit=true)
+        : task(t)
+        , subtask(subtask)
+        , timestamp(tt)
+        , duration(d)
+        , editable(edit) {}
+    static double overestimations(const QList<HitElement>&, QVector<double>&, double&);
+    bool operator<(const HitElement& o) const {
         return timestamp < o.timestamp;
     }
 };
-Q_DECLARE_METATYPE(Hit)
+Q_DECLARE_METATYPE(HitElement)
 
 
 QDataStream & operator<< ( QDataStream & out, const Task & task );
 QDataStream & operator>> ( QDataStream & in, Task & task );
+
+
+QDataStream & operator<< ( QDataStream & out, const Task::Hit & hit );
+QDataStream & operator>> ( QDataStream & in, Task::Hit & hit );
 
 
 #endif

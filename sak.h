@@ -57,16 +57,17 @@ protected slots:
     void doubleClickedTask(QTreeWidgetItem* i, int column);
     void selectColor();
     void popup();
-    void workingOnTask();
+    void workingOnTask(const QString& taskname, const QString& subtask);
+    void popupSubtasks(const QString& taskname);
     void clearView();
     void trayIconActivated(QSystemTrayIcon::ActivationReason);
     // create a list of hits merging tasks
-    QList<Hit> createHitsList(const QDateTime& from = QDateTime(), const QDateTime& to = QDateTime());
-    QMap<double, Task*> createSummaryList(const QList<Hit>& hits);
+    QList<HitElement> createHitsList(const QDateTime& from = QDateTime(), const QDateTime& to = QDateTime());
+    QMap<double, Task*> createSummaryList(const QList<HitElement>& hits);
     void selectedStartDate(const QDate& date);
     void selectedEndDate(const QDate& date);
     void hitsListItemChanged(QTreeWidgetItem*, int column);
-    void populateHitsList(const QList<Hit>&, QTreeWidget* t = 0);
+    void populateHitsList(const QList<HitElement>&, QTreeWidget* t = 0);
     void addDefaultHit();
     void interactiveMergeHits();
 private:
@@ -78,7 +79,8 @@ private:
     QMultiMap<int, SakWidget*> m_widgets;
     QMap<int, SakWidget*>::iterator m_widgetsIterator;
     QList<QString> m_taskSelectionHistory;
-    quint8 m_currentInterval;
+    QMap<QString, QString> m_subtaskSelectionHistory;
+    unsigned int m_currentInterval;
 
     bool m_previewing;
     bool m_changedHit;
@@ -164,6 +166,25 @@ class TaskItemDelegate : public QItemDelegate
 {
 public:
     TaskItemDelegate(Sak* sak, QObject *parent = 0);
+
+    QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option,
+                          const QModelIndex &index) const;
+
+    void setEditorData(QWidget *editor, const QModelIndex &index) const;
+    void setModelData(QWidget *editor, QAbstractItemModel *model,
+                      const QModelIndex &index) const;
+
+    void updateEditorGeometry(QWidget *editor,
+                              const QStyleOptionViewItem &option, const QModelIndex &index) const;
+private:
+    Sak* m_sak;
+};
+
+
+class SubTaskItemDelegate : public QItemDelegate
+{
+public:
+    SubTaskItemDelegate(Sak* sak, QObject *parent = 0);
 
     QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option,
                           const QModelIndex &index) const;

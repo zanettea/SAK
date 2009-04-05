@@ -67,8 +67,16 @@ public:
 class Incremental
 {
 public:
-    QMap<QDateTime, QPair<QString, quint8> > foundPieces; // to be merged
-    QMap<QDateTime, QPair<QString, quint8> > addedPieces; // to be removed
+    struct Hit {
+        Hit(const QString& t="", const QString& st="", unsigned int d=0)
+            : task(t)
+            , subtask(st)
+            , duration(d) {}
+        QString task, subtask;
+        unsigned int duration;
+    };
+    QMap<QDateTime, Hit > foundPieces; // to be merged
+    QMap<QDateTime, Hit > addedPieces; // to be removed
     QDateTime lastTimeStamp;
     QList<QString> foundFiles;
     QList<QString> addedFiles;
@@ -82,7 +90,15 @@ public:
         QStringList list =  m_dir.entryList();
         foreach(QString s, list) {
             QString fullSuffix = QFileInfo(s).completeSuffix();
-            QString task = QFileInfo(s).baseName();
+            QString task, subtask;
+            int divisor = task.lastIndexOf(":");
+            if (divisor>=0) {
+                task =  s.mid(0,divisor);
+                subtask = QFileInfo(s.mid(divisor+1)).baseName();
+            } else {
+                task = QFileInfo(s).baseName();
+                subtask = QString();
+            }
             if (fullSuffix.count() == 19 && fullSuffix[14]=='.' && fullSuffix.mid(15) == "incr") {
                 QDateTime time = QDateTime::fromString(fullSuffix.left(14), BACKUPDATEFORMAT);
                 QFile f(m_dir.filePath(s));
@@ -91,17 +107,18 @@ public:
                 }
                 QDataStream stream(&f);
                 stream.setVersion(QDataStream::Qt_4_3);
-                QPair<QString, quint8>& p = foundPieces[time];
-                p.first = task;
-                stream >> p.second;
-                qDebug() << "SAK: found piece from task " << task << " timestamp " << time << " duration " << Task::hours(p.second) <<  " hours";
+                Hit& p = foundPieces[time];
+                p.task = task;
+                p.subtask = subtask;
+                stream >> p.duration;
+                qDebug() << "SAK: found piece from task \"" << task << "\" subtask \"" << subtask << "\" timestamp " << time << " duration " << Task::hours(p.duration) <<  " hours";
                 foundFiles << m_dir.filePath(s);
             }
         }
         lastTimeStamp = QDateTime::currentDateTime();
     }
-    void addPiece(const QString& task, const QDateTime& now, quint8 value) {
-        QString filename= m_dir.filePath(task + "." + now.toString(BACKUPDATEFORMAT) + ".incr");
+    void addPiece(const QString& task, const QString& subTask, const QDateTime& now, unsigned int value) {
+        QString filename= m_dir.filePath(task + ":" + subTask + "." + now.toString(BACKUPDATEFORMAT) + ".incr");
         addedFiles << filename;
         QFile f(filename);
         f.open(QIODevice::ReadWrite);
@@ -109,7 +126,7 @@ public:
         stream.setVersion(QDataStream::Qt_4_3);
         stream << value;
         qDebug() << "SAK: write piece of task " << task << " of duration " << Task::hours(value) << " in file " << filename;
-        addedPieces[now] = QPair<QString, quint8>(task, value);
+        addedPieces[now] = Hit(task, subTask, value);
         lastTimeStamp = now;
     }
     void clearAddedPieces() {

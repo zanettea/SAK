@@ -119,6 +119,20 @@ void Sak::init()
     stream.setVersion(QDataStream::Qt_4_3);
     stream >> m_tasks;
 
+    // add subtasks, if missing
+    {
+        QHash<QString, Task>::iterator itr = m_tasks.begin();
+        while(itr != m_tasks.end()) {
+            const QList<QString>& subtasks( itr->hits.keys() );
+            for(int i=0; i<subtasks.count(); i++) {
+                if (!itr->subTasks.contains(subtasks[i])) {
+                    itr->subTasks[subtasks[i]].title = subtasks[i];
+                }
+            }
+            itr++;
+        }
+    }
+
     m_editedTasks = m_tasks;
 
     //merge piecies
@@ -192,6 +206,7 @@ void Sak::init()
 
 void Sak::start()
 {
+    m_currentInterval = qMax((unsigned int)1, m_currentInterval);
     if (!m_timerId) {
         int msecs = (int)(Task::hours(m_currentInterval)*3600.0*1000.0 / 2);
         m_timerId = startTimer( msecs );
@@ -259,9 +274,13 @@ void Sak::exportDbCsv()
     }
     QTextStream stream(&file);
     foreach(const Task& t, m_tasks) {
-        QList< QPair<QDateTime, quint8> >::const_iterator itr = t.hits.begin();
+        QHash< QString, QList< Task::Hit > >::const_iterator itr = t.hits.begin();
         while(itr != t.hits.end()) {
-            stream << t.title << ";" << (*itr).first.toString(DATETIMEFORMAT) << ";" << Task::min((*itr).second) << ";\n";
+            QList< Task::Hit >::const_iterator hitr = itr.value().begin(), hend = itr.value().end();
+            while(hitr != hend) {
+                stream << t.title << ";" << itr.key() << ";" << hitr->timestamp.toString(DATETIMEFORMAT) << ";" << hitr->duration << ";\n";
+                hitr++;
+            }
             itr++;
         }
     }
@@ -604,12 +623,11 @@ void Sak::clearView()
 
 }
 
-void Sak::workingOnTask()
+void Sak::workingOnTask(const QString& taskName, const QString& subTask)
 {
     if (!m_previewing) {
-        SakWidget* w = dynamic_cast<SakWidget*>(sender());
-        if (w && m_tasks.contains(w->objectName())) {
-            Task& t = m_tasks[w->objectName()];
+        if (m_tasks.contains(taskName)) {
+            Task& t = m_tasks[taskName];
 
             int historyIndex = m_taskSelectionHistory.indexOf(t.title);
             if (historyIndex != -1) {
@@ -617,26 +635,34 @@ void Sak::workingOnTask()
             }
             m_taskSelectionHistory.push_back(t.title);
 
+
             QDateTime now = QDateTime::currentDateTime();
             QHash<QString, Task>::iterator itr = m_tasks.begin();
             while( itr != m_tasks.end() ) {
                 Task& ot = *itr;
-                if ( ot.hits.count() ) {
-                    uint realElapsed = now.toTime_t() - ot.hits.last().first.toTime_t();
-                    quint8 lastdt = ot.hits.last().second;
-                    qint64 diff = (qint64)realElapsed - (quint64)((Task::hours(lastdt)+Task::hours(m_currentInterval))*3600/2); // seconds
-                    if ( diff < -59) {
-                        qWarning() << "SAK: overestimated time elapsed from last record (" << ot.hits.last().first << ") of task " << ot.title << " and new record of task " << t.title << " (" << diff << " seconds)";
-                        quint8 newdt = Task::value(qMin(24.0, qMax(0.0,  Task::hours(lastdt) + (double)diff/3600.0)));
-                        qWarning() << "     -> adjusted duration of last record of task " << ot.title << " from " << lastdt << " to " << newdt;
-                        ot.hits.back().second = newdt;
+                QHash<QString, QList< Task::Hit> >::iterator hitr = itr->hits.begin();
+                while(hitr != itr->hits.end()) {
+                    QList<Task::Hit>& otHits( *hitr );
+                    if ( otHits.count() ) {
+                        unsigned int realElapsed = now.toTime_t() - otHits.last().timestamp.toTime_t();
+                        unsigned int lastdt = otHits.last().duration;
+                        qint64 diff = (qint64)realElapsed - (quint64)((Task::hours(lastdt)+Task::hours(m_currentInterval))*3600/2); // seconds
+                        if ( diff < -59) {
+                            qWarning() << "SAK: overestimated time elapsed from last record (" << otHits.last().timestamp << ") of task " << ot.title << " and new record of task " << t.title << " (" << diff << " seconds)";
+                            unsigned int newdt = Task::value(qMin(24.0, qMax(0.0,  Task::hours(lastdt) + (double)diff/3600.0)));
+                            qWarning() << "     -> adjusted duration of last record of task " << ot.title << " from " << lastdt << " to " << newdt;
+                            otHits.back().duration = newdt;
+                        }
                     }
+                    hitr++;
                 }
                 itr++;
             }
 
-            t.hits << QPair<QDateTime, quint8>(now, m_currentInterval);
-            m_incremental->addPiece(t.title, now, m_currentInterval);
+            // if !subTask.isEmpty() ...
+
+            t.hits[subTask] << Task::Hit(now, m_currentInterval);
+            m_incremental->addPiece(t.title, subTask, now, m_currentInterval);
             t.checkConsistency();
             QList<QTreeWidgetItem*> items = tasksTree->findItems (t.title, Qt::MatchExactly, 0);
             if (!items.isEmpty())
@@ -835,13 +861,12 @@ void Sak::popup()
         double m = monthStats[t.title];
         test->setStatistics(d, w, m, d/dayHits * 100.0, w/weekHits * 100.0, m/monthHits * 100.0);
         test->setObjectName(t.title);
-        connect (test, SIGNAL(clicked()), this, SLOT(workingOnTask()));
+        connect (test, SIGNAL(clicked(const QString&, const QString&)), this, SLOT(workingOnTask(const QString&, const QString&)));
+        connect (test, SIGNAL(clicked(const QString&)), this, SLOT(popupSubtasks(const QString&)));
         int historyPosition = 1 + m_taskSelectionHistory.indexOf(t.title);
         int rank = historyPosition != 0 ? -1000000 * historyPosition : -d;
         m_widgets.insertMulti( rank, test);
     }
-
-    qDebug() << m_taskSelectionHistory;
 
     m_widgetsIterator = m_widgets.begin();
     if (m_widgetsIterator != m_widgets.end()) {
@@ -876,6 +901,13 @@ void Sak::popup()
     m_view->raise();
     m_view->setFocus();
     qApp->alert(m_view, 5000);
+}
+
+
+void Sak::popupSubtasks(const QString& taskname) {
+    foreach(SakWidget* w, m_widgets.values()) {
+        w->hide();
+    }
 }
 
 //END   Tasks >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -1071,19 +1103,22 @@ QTreeWidget* Sak::newHitsList()
 {
     QTreeWidget* hitsList = new QTreeWidget;
     hitsList->setColumnCount(4);
-    hitsList->setColumnWidth(0, 250);
+    hitsList->setColumnWidth(0, 200);
     hitsList->setColumnWidth(1, 150);
     hitsList->setColumnWidth(2, 150);
     hitsList->setColumnWidth(3, 150);
+    hitsList->setColumnWidth(4, 150);
     hitsList->setIconSize(QSize(24,24));
     hitsList->setSortingEnabled(true);
     hitsList->setItemDelegateForColumn(0, new MyDateItemDelegate);
     hitsList->setItemDelegateForColumn(1, new TaskItemDelegate(this));
+    hitsList->setItemDelegateForColumn(2, new SubTaskItemDelegate(this));
     QTreeWidgetItem* header = new QTreeWidgetItem;
     header->setText(0, "Date/Time");
     header->setText(1, "Task");
-    header->setText(2, "Duration (min)");
-    header->setText(3, "Overestimation");
+    header->setText(2, "Subtask");
+    header->setText(3, "Duration (min)");
+    header->setText(4, "Overestimation");
     hitsList->setHeaderItem(header);
     hitsList->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
     return hitsList;
@@ -1094,6 +1129,7 @@ QTreeWidget* Sak::newTaskSummaryList()
     QTreeWidget* taskSummaryList = new QTreeWidget;
     taskSummaryList->setColumnCount(4);
     taskSummaryList->setColumnWidth(0, 250);
+    taskSummaryList->setColumnWidth(1, 150);
     taskSummaryList->setColumnWidth(1, 150);
     taskSummaryList->setIconSize(QSize(24,24));
     taskSummaryList->setSortingEnabled(true);

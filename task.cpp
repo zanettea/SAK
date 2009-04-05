@@ -25,16 +25,37 @@ QDataStream & operator>> ( QDataStream & in, Task & task )
     return in;
 }
 
+
+QDataStream & operator<< ( QDataStream & out, const Task::Hit & hit )
+{
+    out << hit.timestamp;
+    out << hit.duration;
+    return out;
+}
+
+QDataStream & operator>> ( QDataStream & in, Task::Hit & hit )
+{
+    in >> hit.timestamp;
+    in >> hit.duration;
+    return in;
+}
+
+
 double Task::workedHours(const QDateTime& from, const QDateTime& to) const
 {
     double worked = 0;
-    for(int i=hits.count()-1; i>=0; i--) {
-        const QPair<QDateTime, quint8>& hit = hits[i];
-        if ( hit.first < from) return worked;
-        if ( hits[i].first > to ) continue;
-        else {
-            worked += hours(hit.second); // multiple of quarter of hour
+    QHash<QString, QList<Task::Hit > >::const_iterator hitr = hits.begin(), hend = hits.end();
+    while(hitr != hend) {
+        const QList<Task::Hit>& l(hitr.value());
+        for(int i=l.count()-1; i>=0; i--) {
+            const Task::Hit& hit ( l[i] );
+            if ( hit.timestamp < from) return worked;
+            if ( hit.timestamp > to ) continue;
+            else {
+                worked += hours(hit.duration); // multiple of quarter of hour
+            }
         }
+        hitr++;
     }
     return worked;
 }
@@ -42,44 +63,18 @@ double Task::workedHours(const QDateTime& from, const QDateTime& to) const
 
 bool Task::checkConsistency()
 {
-    QList<Hit> hitlist;
-    for(int i=0; i<hits.count(); i++) {
-        hitlist << Hit(this, hits[i].first, hits[i].second);
+    QList<HitElement> hitlist;
+    QHash<QString, QList<Task::Hit > >::const_iterator hitr = hits.begin(), hend = hits.end();
+    while(hitr != hend) {
+        const QList<Task::Hit>& l(hitr.value());
+        for(int i=0; i<l.count(); i++) {
+            hitlist << HitElement(this, hitr.key(), l[i].timestamp, l[i].duration);
+        }
+        hitr++;
     }
     QVector<double> o;
-    totHours = Hit::overestimations(hitlist, o, totOverestimation);
+    totHours = HitElement::overestimations(hitlist, o, totOverestimation);
     return totHours >= 0;
-    /*
-    totHours = 0;
-    QDateTime t = QDateTime::currentDateTime();
-    int lastdt=0;
-    totOverestimation=0;
-    for (int i=hits.count()-1; i>=0; i--) {
-        if (hits[i].first > t) {
-            //inconsistencies[i] = ( hits[i].first.toTime_t() - t.toTime_t() ) / 60;
-            qWarning() << "SAK: inconsistency in task " << title << ": " << hits[i].first << " > " << t;
-            totHours = -1;
-            return false;
-        } else {
-            totHours += hours(hits[i].second);
-            qint64 expected = (t.toTime_t() - hits[i].first.toTime_t());
-            qint64 got = (hours(hits[i].second)+hours(lastdt))*3600/2; //seconds
-            qint64 diff = expected - got;
-            if (diff < 0)
-                totOverestimation -= diff;
-            if (diff < -59) {
-                //inconsistencies[i] = diff/60;
-                qDebug() << "SAK: task " << title << ": overestimated time from hit " << hits[i].first << " and hit " << t << ". Expected " << expected/60 << " minutes, got " << got/60 << " (diff = " << diff/60 << ")";
-            }
-            t=hits[i].first;
-        }
-    }
-    if (totOverestimation > 60) {
-        totOverestimation /= 3600.0;
-        qDebug() << "SAK: task " << title << " total overestimation of " << totOverestimation << " hours ";
-    }
-    return true;
-    */
 }
 
 // QPair<QDateTime, quint8>* Task::findHit(QDateTime t, quint8 d)
@@ -94,9 +89,9 @@ bool Task::checkConsistency()
 
 
 // returns tot time
-double Hit::overestimations(const QList<Hit>& hits, QVector<double>& overestimation, double& totOverestimation)
+double HitElement::overestimations(const QList<HitElement>& hits, QVector<double>& overestimation, double& totOverestimation)
 {
-    QList<Hit> sortedList(hits);
+    QList<HitElement> sortedList(hits);
     qSort(sortedList);
 
     double totHours = 0;
