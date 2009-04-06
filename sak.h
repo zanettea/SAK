@@ -60,6 +60,7 @@ protected slots:
     void popup();
     void workingOnTask(const QString& taskname, const QString& subtask);
     void popupSubtasks(const QString& taskname);
+    void focusedSubTask();
     void clearView();
     void trayIconActivated(QSystemTrayIcon::ActivationReason);
     // create a list of hits merging tasks
@@ -110,6 +111,9 @@ private:
     QTreeWidget* newTaskSummaryList();
     void setupSettingsWidget();
     void createActions();
+
+    void scrollTasks(int npos);
+    void scrollSubTasks(int npos);
 
     QTabWidget* tabs;
     QWidget* tab1;

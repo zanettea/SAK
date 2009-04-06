@@ -361,64 +361,27 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
             e->ignore();
             return true;
         }
-    } else if (obj == m_view && e->type() == QEvent::KeyPress ) {
+    } else if (obj == m_view && e->type() == QEvent::Wheel) {
+        QWheelEvent* we = dynamic_cast<QWheelEvent*>(e);
+        if (m_subtaskView) {
+            scrollSubTasks(we->delta() / 120);
+        } else scrollTasks(we->delta() / 120);
+    } else if (obj == m_view && e->type() == QEvent::KeyPress) {
         QKeyEvent* ke = dynamic_cast<QKeyEvent*>(e);
         if ((ke->modifiers() & Qt::AltModifier) && (ke->modifiers() &  Qt::ControlModifier) ) {
             clearView();
             return true;
-        } else if (m_subtaskView && ke->key() == Qt::Key_Up) {
-            if (m_subwidgetsIterator == m_subwidgets.end()) return false;
-            SakSubWidget* currentShowing = m_subwidgetsIterator != m_subwidgets.end() ? m_subwidgetsIterator.value() : 0;
-            if (m_subwidgetsIterator == m_subwidgets.begin()) {
-                m_subwidgetsIterator = m_subwidgets.end();
-                m_subWidgetRank = m_subwidgets.count();
-            }
-            m_subwidgetsIterator--;
-            m_subWidgetRank--;
-            if (m_subwidgetsIterator != m_subwidgets.end()) {
-                currentShowing->showDetails(false);
-                m_subwidgetsIterator.value()->showDetails(true);
-                m_view->scene()->setFocusItem(m_subwidgetsIterator.value(), Qt::MouseFocusReason);
-                m_subwidgetsIterator.value()->widget()->setFocus(Qt::MouseFocusReason);
-            }
-            layoutSubTasks(m_subwidgets, m_subWidgetRank);
+        } else if (m_subtaskView && (ke->key() == Qt::Key_Up) ) {
+            scrollSubTasks(-1);
             return true;
         } else if (m_subtaskView && ke->key() == Qt::Key_Down) {
-            if (m_subwidgetsIterator == m_subwidgets.end()) return false;
-            SakSubWidget* currentShowing = m_subwidgetsIterator.value();
-            m_subwidgetsIterator++;
-            m_subWidgetRank++;
-            if (m_subwidgetsIterator == m_subwidgets.end()) {
-                m_subwidgetsIterator = m_subwidgets.begin();
-                m_subWidgetRank = 0;
-            }
-            if (m_subwidgetsIterator != m_subwidgets.end()) {
-                currentShowing->showDetails(false);
-                m_subwidgetsIterator.value()->showDetails(true);
-                m_view->scene()->setFocusItem(m_subwidgetsIterator.value(), Qt::MouseFocusReason);
-                m_subwidgetsIterator.value()->widget()->setFocus(Qt::MouseFocusReason);
-            }
-            layoutSubTasks(m_subwidgets, m_subWidgetRank);
+            scrollSubTasks(+1);
             return true;
         } else if (!m_subtaskView && ke->key() == Qt::Key_Left) {
-            if (m_widgetsIterator == m_widgets.end()) return false;
-            SakWidget* currentShowing = m_widgetsIterator != m_widgets.end() ? m_widgetsIterator.value() : 0;
-            if (m_widgetsIterator == m_widgets.begin()) m_widgetsIterator = m_widgets.end();
-            m_widgetsIterator--;
-            if (m_widgetsIterator != m_widgets.end()) {
-                currentShowing->showDetails(false);
-                m_widgetsIterator.value()->showDetails(true);
-            }
+            scrollTasks(-1);
             return true;
         } else if (!m_subtaskView && ke->key() == Qt::Key_Right) {
-            if (m_widgetsIterator == m_widgets.end()) return false;
-            SakWidget* currentShowing = m_widgetsIterator.value();
-            m_widgetsIterator++;
-            if (m_widgetsIterator == m_widgets.end()) m_widgetsIterator = m_widgets.begin();
-            if (m_widgetsIterator != m_widgets.end()) {
-                currentShowing->showDetails(false);
-                m_widgetsIterator.value()->showDetails(true);
-            }
+            scrollTasks(+1);
             return true;
         } else { // forward events to current widget
             if (!m_subtaskView) {
@@ -643,7 +606,7 @@ void Sak::timerEvent(QTimerEvent* e)
             m_timerId = startTimer(5000);
             m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(5000);
         }
-    } else if (e->timerId() == m_timeoutPopup) {
+    } else if (e->timerId() == m_timeoutPopup && !m_subtaskView) {
         clearView();
         killTimer(m_timeoutPopup);
     }
@@ -722,7 +685,7 @@ void Sak::workingOnTask(const QString& taskName, const QString& subTask)
 
             // update statistics
             m_editedTasks = m_tasks;
-            selectedStartDate(cal1->selectedDate());
+            QMetaObject::invokeMethod(this, "selectedStartDate", Qt::QueuedConnection, Q_ARG(QDate, cal1->selectedDate()));
         }
     }
     clearView();
@@ -955,6 +918,7 @@ void Sak::popup()
 
 void Sak::popupSubtasks(const QString& taskname) {
     m_subtaskView = true;
+    killTimer(m_timeoutPopup);
 
     foreach(SakWidget* w, m_widgets.values()) {
         w->hide();
@@ -973,6 +937,8 @@ void Sak::popupSubtasks(const QString& taskname) {
         SakSubWidget* test = new SakSubWidget(t, *titr);
         test->setVisible(true);
         connect (test, SIGNAL(clicked(const QString&, const QString&)), this, SLOT(workingOnTask(const QString&, const QString&)));
+        connect (test, SIGNAL(focused()), this, SLOT(focusedSubTask()));
+
 
 
         QDateTime rank=now;
@@ -1009,6 +975,8 @@ void Sak::popupSubtasks(const QString& taskname) {
     m_view->scene()->addItem(tmpSw);
     tmpSw->setGeometry(QRectF(0,0,w,h));
     connect (tmpSw, SIGNAL(clicked(const QString&, const QString&)), this, SLOT(workingOnTask(const QString&, const QString&)));
+    connect (tmpSw, SIGNAL(focused()), this, SLOT(focusedSubTask()));
+
 
     m_subwidgets.insertMulti(QDateTime::currentDateTime().addDays(999).toTime_t(), tmpSw);
 
@@ -1033,6 +1001,78 @@ void Sak::popupSubtasks(const QString& taskname) {
     layoutSubTasks(m_subwidgets, m_subWidgetRank);
 
 
+}
+
+
+void Sak::scrollTasks(int npos) {
+    SakWidget* currentShowing = 0;
+    if (npos < 0) {
+        for (int i=npos; i<0; i++) {
+            if (m_widgetsIterator == m_widgets.end()) return;
+            currentShowing = m_widgetsIterator != m_widgets.end() ? m_widgetsIterator.value() : 0;
+            if (m_widgetsIterator == m_widgets.begin()) m_widgetsIterator = m_widgets.end();
+            m_widgetsIterator--;
+        }
+    } else {
+        for (int i=0; i<npos; i++) {
+            if (m_widgetsIterator == m_widgets.end()) return;
+            currentShowing = m_widgetsIterator.value();
+            m_widgetsIterator++;
+            if (m_widgetsIterator == m_widgets.end()) m_widgetsIterator = m_widgets.begin();
+        }
+    }
+    if (currentShowing && m_widgetsIterator != m_widgets.end()) {
+        currentShowing->showDetails(false);
+        m_widgetsIterator.value()->showDetails(true);
+    }
+}
+
+void Sak::scrollSubTasks(int npos) {
+    SakSubWidget* currentShowing = 0;
+    if (npos < 0) {
+        for (int i=npos; i<0; i++) {
+            if (m_subwidgetsIterator == m_subwidgets.end()) return;
+            currentShowing = m_subwidgetsIterator != m_subwidgets.end() ? m_subwidgetsIterator.value() : 0;
+            if (m_subwidgetsIterator == m_subwidgets.begin()) {
+                m_subwidgetsIterator = m_subwidgets.end();
+                m_subWidgetRank = m_subwidgets.count();
+            }
+            m_subwidgetsIterator--;
+            m_subWidgetRank--;
+        }
+    } else {
+        for (int i=0; i<npos; i++) {
+            if (m_subwidgetsIterator == m_subwidgets.end()) return;
+            currentShowing = m_subwidgetsIterator.value();
+            m_subwidgetsIterator++;
+            m_subWidgetRank++;
+            if (m_subwidgetsIterator == m_subwidgets.end()) {
+                m_subwidgetsIterator = m_subwidgets.begin();
+                m_subWidgetRank = 0;
+            }
+        }
+    }
+    if (currentShowing && m_subwidgetsIterator != m_subwidgets.end()) {
+        currentShowing->showDetails(false);
+        m_subwidgetsIterator.value()->showDetails(true);
+        m_view->scene()->setFocusItem(m_subwidgetsIterator.value(), Qt::MouseFocusReason);
+        m_subwidgetsIterator.value()->widget()->setFocus(Qt::MouseFocusReason);
+    }
+    layoutSubTasks(m_subwidgets, m_subWidgetRank);
+}
+
+void Sak::focusedSubTask()
+{
+    SakSubWidget* w = dynamic_cast<SakSubWidget*>(sender());
+    if (w) {
+        QMap<unsigned int, SakSubWidget*>::iterator itr = m_subwidgets.begin(), end=m_subwidgets.end();
+        for(int i=0; itr != end; i++,itr++) {
+            if (itr.value() == w) {
+                m_subwidgetsIterator = itr;
+                m_subWidgetRank = i;
+            }
+        }
+    }
 }
 
 //END   Tasks >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
