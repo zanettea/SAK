@@ -41,9 +41,6 @@ struct Task
     bool checkConsistency();
     // get hours from value
     static double hours(unsigned int v) { return (double)v/60.0; }
-    static int min(unsigned int v) { return v; }
-    // get a value from a hour
-    static unsigned int value(double h) { return (unsigned int)(60.0 * h); }
 };
 
 static inline bool operator == (const Task::Hit& h1, const Task::Hit& h2) {

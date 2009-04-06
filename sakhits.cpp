@@ -356,7 +356,7 @@ void Sak::hitsListItemChanged(QTreeWidgetItem* i, int column)
             qDebug() << "remove hit from task " << t.title;
             origList.takeAt(hitPosition);
             Task& nt(m_editedTasks[i->text(1)]);
-            Task::Hit p(QDateTime::fromString(i->text(0), DATETIMEFORMAT), Task::value(i->text(3).toFloat()/60.0));
+            Task::Hit p(QDateTime::fromString(i->text(0), DATETIMEFORMAT), i->text(3).toUInt());
             i->setData(1, Qt::UserRole, qVariantFromValue(HitElement(&nt, i->text(2), p.timestamp, p.duration)));
             qDebug() << "insert hit into task " << i->text(1) << p.timestamp;
             nt.hits[i->text(2)] << p;
@@ -395,7 +395,7 @@ void Sak::populateHitsList(const QList<HitElement>& hits, QTreeWidget* theHitsLi
         w->setSizeHint(0, QSize(24, 24));
         w->setData(1, Qt::UserRole, qVariantFromValue(hit));
         w->setText(2, hit.subtask);
-        w->setText(3, QString("%1").arg(Task::min(hit.duration)));
+        w->setText(3, QString("%1").arg(hit.duration));
         if (o[i] != 0) {
             w->setBackground(0,Qt::red);
             w->setBackground(1,Qt::red);
@@ -403,6 +403,13 @@ void Sak::populateHitsList(const QList<HitElement>& hits, QTreeWidget* theHitsLi
             w->setBackground(3,Qt::red);
             w->setBackground(4,Qt::red);
             w->setText(4,QString("%1").arg(o[i]));
+        }
+        if (hit.task->title == "<away>") {
+            w->setForeground(0,Qt::gray);
+            w->setForeground(1,Qt::gray);
+            w->setForeground(2,Qt::gray);
+            w->setForeground(3,Qt::gray);
+            w->setForeground(4,Qt::gray);
         }
         w->setIcon(1, hit.task->icon);
         if (hit.editable)
@@ -484,7 +491,7 @@ void Sak::interactiveMergeHits()
             if (!w->isDisabled()) {
                 QString name(w->text(1));
                 QDateTime timestamp(QDateTime::fromString(w->text(0), DATETIMEFORMAT));
-                unsigned int duration (Task::value(w->text(3).toFloat()/60.0));
+                unsigned int duration (w->text(3).toUInt());
                 QHash<QString, Task>::iterator titr = m_tasks.find(name);
                 Q_ASSERT(titr != m_tasks.end());
                 (*titr).hits[w->text(2)] << Task::Hit(timestamp, duration);

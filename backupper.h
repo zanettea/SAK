@@ -91,7 +91,7 @@ public:
         foreach(QString s, list) {
             QString fullSuffix = QFileInfo(s).completeSuffix();
             QString task, subtask;
-            int divisor = task.lastIndexOf(":");
+            int divisor = s.lastIndexOf(":");
             if (divisor>=0) {
                 task =  s.mid(0,divisor);
                 subtask = QFileInfo(s.mid(divisor+1)).baseName();

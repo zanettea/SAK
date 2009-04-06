@@ -55,7 +55,7 @@ class GView : public QGraphicsView
 {
     public:
         GView() { 
-            if (QGLFormat::hasOpenGL()) { 
+            if (QGLFormat::hasOpenGL()) {
                 qDebug() << "Using OpenGL";
                 setViewport(new QGLWidget);
             }
@@ -99,7 +99,7 @@ Sak::Sak(QObject* parent)
     if (m_tasks.count() <= 0)
         m_settings->show();
 
-    trayIcon->installEventFilter(this);
+   trayIcon->installEventFilter(this);
 
 
     m_previewing = false;
@@ -128,6 +128,13 @@ void Sak::init()
             itr++;
         }
     }
+
+    // reset awayTask
+    Task & awayTask = m_tasks["<away>"];
+    awayTask.title = "<away>";
+    awayTask.fgColor = Qt::gray;
+    awayTask.bgColor = Qt::white;
+    awayTask.icon = QPixmap(":/images/away.png");
 
     m_editedTasks = m_tasks;
 
@@ -173,14 +180,7 @@ void Sak::init()
     
     m_view = new GView;
     m_view->setScene(new QGraphicsScene);
-    m_view->scene()->setSceneRect(QDesktopWidget().geometry());
-    
-//    QPalette pal;
-//    pal.setColor(QPalette::Window, Qt::yellow);
-//    pal.setColor(QPalette::Base,  Qt::yellow);
-//    pal.setColor(QPalette::Background,  Qt::yellow);
-//    m_view->setPalette(pal);
-//    m_view->viewport()->setPalette(pal);
+    m_view->scene()->setSceneRect(QDesktopWidget().geometry());    
 
     m_view->installEventFilter(this);
     m_view->setFrameStyle(QFrame::NoFrame);
@@ -192,10 +192,9 @@ void Sak::init()
     m_view->setWindowIcon( QIcon(":/images/icon.png") );
     m_view->setWindowTitle("SaK - Sistema Anti Kazzeggio");
 
-    int v = durationSpinBox->value();
-    v = qMax(1, qMin(1440, v));
-    m_currentInterval = Task::value( (double)v/60.0 );
-    qDebug() << "SAK: pinging interval " <<  v << Task::hours(m_currentInterval) << " hours ";
+    m_currentInterval = durationSpinBox->value();
+    m_currentInterval = qMax((unsigned int)1, qMin((unsigned int)1440, m_currentInterval));
+    qDebug() << "SAK: pinging interval " <<  m_currentInterval << Task::hours(m_currentInterval) << " hours ";
 
     populateHitsList(createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
 }
@@ -346,6 +345,9 @@ int Sak::taskCounter =  0;
 
 bool Sak::eventFilter(QObject* obj, QEvent* e)
 {
+//    if (obj == m_view) {
+//        qDebug() << "event : " << e->type();
+//    }
     if (obj == tasksTree) {
         return settingsEventFilter(e);
     } else if (obj == hitsList || obj == summaryList) {
@@ -442,6 +444,7 @@ void Sak::populateTasks()
 {
     tasksTree->clear();
     foreach(const Task& t, m_tasks.values()) {
+        if (t.title.isEmpty() || t.title == "<away>") continue; // skip away task
         QTreeWidgetItem* item = new QTreeWidgetItem(QStringList(t.title));
         item->setData(0, Qt::UserRole, QVariant(QMetaType::VoidStar, &t));
         QIcon icon;
@@ -607,8 +610,14 @@ void Sak::timerEvent(QTimerEvent* e)
             m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(5000);
         }
     } else if (e->timerId() == m_timeoutPopup && !m_subtaskView) {
-        clearView();
         killTimer(m_timeoutPopup);
+        workingOnTask("<away>","");
+
+        trayIcon->showMessage("New away events", "You have missed a check point. Fix it in the detailed hit list.", QSystemTrayIcon::Information,  999999);
+
+        clearView();
+    } else {
+        qDebug() << "unknown timer event";
     }
 }
 
@@ -633,37 +642,51 @@ void Sak::clearView()
 void Sak::workingOnTask(const QString& taskName, const QString& subTask)
 {
     if (!m_previewing) {
+        qDebug() << "Working on " << taskName ;
         if (m_tasks.contains(taskName)) {
             Task& t = m_tasks[taskName];
 
-            int historyIndex = m_taskSelectionHistory.indexOf(t.title);
-            if (historyIndex != -1) {
-                m_taskSelectionHistory.takeAt(historyIndex);
-            }
-            m_taskSelectionHistory.push_back(t.title);
+            if (t.title != "<away>" && !t.title.isEmpty()) {
+                // update history
+                int historyIndex = m_taskSelectionHistory.indexOf(t.title);
+                if (historyIndex != -1) {
+                    m_taskSelectionHistory.takeAt(historyIndex);
+                }
+                m_taskSelectionHistory.push_back(t.title);
 
-            QList<QString> & subtaskSelectionHistory(m_subtaskSelectionHistory[t.title]);
-            historyIndex = subtaskSelectionHistory.indexOf(subTask);
-            if (historyIndex != -1) {
-                subtaskSelectionHistory.takeAt(historyIndex);
+                QList<QString> & subtaskSelectionHistory(m_subtaskSelectionHistory[t.title]);
+                historyIndex = subtaskSelectionHistory.indexOf(subTask);
+                if (historyIndex != -1) {
+                    subtaskSelectionHistory.takeAt(historyIndex);
+                }
+                subtaskSelectionHistory.push_back(subTask);
             }
-            subtaskSelectionHistory.push_back(subTask);
 
 
             QDateTime now = QDateTime::currentDateTime();
             QHash<QString, Task>::iterator itr = m_tasks.begin();
+            bool merged = false;
             while( itr != m_tasks.end() ) {
                 Task& ot = *itr;
                 QHash<QString, QList< Task::Hit> >::iterator hitr = itr->hits.begin();
                 while(hitr != itr->hits.end()) {
                     QList<Task::Hit>& otHits( *hitr );
                     if ( otHits.count() ) {
-                        unsigned int realElapsed = now.toTime_t() - otHits.last().timestamp.toTime_t();
-                        unsigned int lastdt = otHits.last().duration;
+                        Task::Hit& lastHit(otHits.last());
+                        unsigned int realElapsed = now.toTime_t() - lastHit.timestamp.toTime_t();
+                        unsigned int lastdt = lastHit.duration;
                         qint64 diff = (qint64)realElapsed - (quint64)((Task::hours(lastdt)+Task::hours(m_currentInterval))*3600/2); // seconds
-                        if ( diff < -59) {
+                        if (itr.key() == taskName && hitr.key() == subTask) {
+                            if (diff < 120) { // at most 2 minutes apart
+                                lastHit.timestamp = lastHit.timestamp.addSecs(-30*lastHit.duration);
+                                int secsToEnd = lastHit.timestamp.secsTo(now.addSecs(30*m_currentInterval));
+                                lastHit.timestamp = lastHit.timestamp.addSecs( secsToEnd/2.0 );
+                                lastHit.duration = (int)( round( secsToEnd / 60.0 ) );
+                                merged=true;
+                            }
+                        } else if ( diff < -59) {
                             qWarning() << "SAK: overestimated time elapsed from last record (" << otHits.last().timestamp << ") of task " << ot.title << " and new record of task " << t.title << " (" << diff << " seconds)";
-                            unsigned int newdt = Task::value(qMin(24.0, qMax(0.0,  Task::hours(lastdt) + (double)diff/3600.0)));
+                            unsigned int newdt = qMin(24.0, qMax(0.0,  Task::hours(lastdt) + (double)diff/3600.0))*60.0;
                             qWarning() << "     -> adjusted duration of last record of task " << ot.title << " from " << lastdt << " to " << newdt;
                             otHits.back().duration = newdt;
                         }
@@ -673,7 +696,8 @@ void Sak::workingOnTask(const QString& taskName, const QString& subTask)
                 itr++;
             }
 
-            t.hits[subTask] << Task::Hit(now, m_currentInterval);
+            if (!merged)
+                t.hits[subTask] << Task::Hit(now, m_currentInterval);
             m_incremental->addPiece(t.title, subTask, now, m_currentInterval);
             t.checkConsistency();
             QList<QTreeWidgetItem*> items = tasksTree->findItems (t.title, Qt::MatchExactly, 0);
@@ -688,6 +712,8 @@ void Sak::workingOnTask(const QString& taskName, const QString& subTask)
             QMetaObject::invokeMethod(this, "selectedStartDate", Qt::QueuedConnection, Q_ARG(QDate, cal1->selectedDate()));
         }
     }
+
+    killTimer(m_timeoutPopup);
     clearView();
 }
 
@@ -865,7 +891,7 @@ void Sak::popup()
 
     m_widgets.clear();
     foreach(const Task& t,  m_tasks.values()) {
-        if (!t.active) continue;
+        if (!t.active || t.title == QString() || t.title == "<away>") continue;
         SakWidget* test = new SakWidget(t);
         test->setVisible(false);
         double d = dayStats[t.title];
