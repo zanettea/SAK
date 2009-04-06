@@ -80,6 +80,7 @@ Sak::Sak(QObject* parent)
     , m_timeoutPopup(0)
     , m_settings(0)
     , m_changedHit(false)
+    , m_subtaskView(false)
 {
     summaryList = hitsList = 0;
 #ifndef Q_OS_LINUX
@@ -123,12 +124,7 @@ void Sak::init()
     {
         QHash<QString, Task>::iterator itr = m_tasks.begin();
         while(itr != m_tasks.end()) {
-            const QList<QString>& subtasks( itr->hits.keys() );
-            for(int i=0; i<subtasks.count(); i++) {
-                if (!itr->subTasks.contains(subtasks[i])) {
-                    itr->subTasks[subtasks[i]].title = subtasks[i];
-                }
-            }
+            itr->updateSubTasks();
             itr++;
         }
     }
@@ -335,6 +331,17 @@ Sak::~Sak()
 }
 
 
+void layoutSubTasks( const QMap<unsigned int, SakSubWidget*> sortedWidgets, unsigned int currentRank) {
+    QMap<unsigned int, SakSubWidget*>::const_iterator itr = sortedWidgets.begin(), end = sortedWidgets.end();
+    QRect r = QDesktopWidget().geometry();
+    for(int i=0; itr != end; i++, itr++) {
+        int h = (*itr)->size().height();
+        int w = (*itr)->size().width();
+        (*itr)->setPos(QPointF((r.width() - w)/2, (r.height()-h)/2 + (i - currentRank - 1) * (h+2)));
+    }
+}
+
+
 int Sak::taskCounter =  0;
 
 bool Sak::eventFilter(QObject* obj, QEvent* e)
@@ -343,11 +350,7 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
         return settingsEventFilter(e);
     } else if (obj == hitsList || obj == summaryList) {
         return hitsListEventFilter(e);
-    }/* else if (obj == summaryList && e->type() == QEvent::Show) {
-        m_editedTasks = m_tasks;
-        populateHitsList(createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
-        return false;
-    }*/ else if (obj == m_settings && e->type() == QEvent::Close) {
+    } else if (obj == m_settings && e->type() == QEvent::Close) {
         if (trayIcon->isVisible()) {
             QMessageBox::information(m_settings, tr("Systray"),
                                      tr("The program will keep running in the "
@@ -363,7 +366,41 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
         if ((ke->modifiers() & Qt::AltModifier) && (ke->modifiers() &  Qt::ControlModifier) ) {
             clearView();
             return true;
-        } else if (ke->key() == Qt::Key_Left) {
+        } else if (m_subtaskView && ke->key() == Qt::Key_Up) {
+            if (m_subwidgetsIterator == m_subwidgets.end()) return false;
+            SakSubWidget* currentShowing = m_subwidgetsIterator != m_subwidgets.end() ? m_subwidgetsIterator.value() : 0;
+            if (m_subwidgetsIterator == m_subwidgets.begin()) {
+                m_subwidgetsIterator = m_subwidgets.end();
+                m_subWidgetRank = m_subwidgets.count();
+            }
+            m_subwidgetsIterator--;
+            m_subWidgetRank--;
+            if (m_subwidgetsIterator != m_subwidgets.end()) {
+                currentShowing->showDetails(false);
+                m_subwidgetsIterator.value()->showDetails(true);
+                m_view->scene()->setFocusItem(m_subwidgetsIterator.value(), Qt::MouseFocusReason);
+                m_subwidgetsIterator.value()->widget()->setFocus(Qt::MouseFocusReason);
+            }
+            layoutSubTasks(m_subwidgets, m_subWidgetRank);
+            return true;
+        } else if (m_subtaskView && ke->key() == Qt::Key_Down) {
+            if (m_subwidgetsIterator == m_subwidgets.end()) return false;
+            SakSubWidget* currentShowing = m_subwidgetsIterator.value();
+            m_subwidgetsIterator++;
+            m_subWidgetRank++;
+            if (m_subwidgetsIterator == m_subwidgets.end()) {
+                m_subwidgetsIterator = m_subwidgets.begin();
+                m_subWidgetRank = 0;
+            }
+            if (m_subwidgetsIterator != m_subwidgets.end()) {
+                currentShowing->showDetails(false);
+                m_subwidgetsIterator.value()->showDetails(true);
+                m_view->scene()->setFocusItem(m_subwidgetsIterator.value(), Qt::MouseFocusReason);
+                m_subwidgetsIterator.value()->widget()->setFocus(Qt::MouseFocusReason);
+            }
+            layoutSubTasks(m_subwidgets, m_subWidgetRank);
+            return true;
+        } else if (!m_subtaskView && ke->key() == Qt::Key_Left) {
             if (m_widgetsIterator == m_widgets.end()) return false;
             SakWidget* currentShowing = m_widgetsIterator != m_widgets.end() ? m_widgetsIterator.value() : 0;
             if (m_widgetsIterator == m_widgets.begin()) m_widgetsIterator = m_widgets.end();
@@ -373,7 +410,7 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
                 m_widgetsIterator.value()->showDetails(true);
             }
             return true;
-        } else if (ke->key() == Qt::Key_Right) {
+        } else if (!m_subtaskView && ke->key() == Qt::Key_Right) {
             if (m_widgetsIterator == m_widgets.end()) return false;
             SakWidget* currentShowing = m_widgetsIterator.value();
             m_widgetsIterator++;
@@ -384,10 +421,17 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
             }
             return true;
         } else { // forward events to current widget
-            if (m_widgetsIterator == m_widgets.end()) return false;
-            SakWidget* currentShowing = m_widgetsIterator.value();
-            currentShowing->keyPressEvent(ke);
-            return true;
+            if (!m_subtaskView) {
+                if (m_widgetsIterator == m_widgets.end()) return false;
+                SakWidget* currentShowing = m_widgetsIterator.value();
+                currentShowing->keyPressEvent(ke);
+                return true;
+            } else {
+                if (m_subwidgetsIterator == m_subwidgets.end()) return false;
+                SakSubWidget* currentShowing = m_subwidgetsIterator.value();
+                currentShowing->keyPressEvent(ke);
+                return true;
+            }
         }
     } else if (obj == m_view && e->type() == QEvent::Show) {
 #if defined(Q_WS_X11)
@@ -587,7 +631,7 @@ void Sak::timerEvent(QTimerEvent* e)
             popup();
             // close timer
             killTimer(m_timeoutPopup);
-            m_timeoutPopup = startTimer((int)(qMax( 5000.0, Task::hours(m_currentInterval)*3600.0*1000.0/10.0))); // 5 secmin
+            m_timeoutPopup = startTimer((int)(qMax( 30000.0, Task::hours(m_currentInterval)*3600.0*1000.0/10.0))); // 5 secmin
             // restart timer
             killTimer(m_timerId);
             int msecs = (int)(Task::hours(m_currentInterval)*3600.0*1000.0);
@@ -635,6 +679,13 @@ void Sak::workingOnTask(const QString& taskName, const QString& subTask)
             }
             m_taskSelectionHistory.push_back(t.title);
 
+            QList<QString> & subtaskSelectionHistory(m_subtaskSelectionHistory[t.title]);
+            historyIndex = subtaskSelectionHistory.indexOf(subTask);
+            if (historyIndex != -1) {
+                subtaskSelectionHistory.takeAt(historyIndex);
+            }
+            subtaskSelectionHistory.push_back(subTask);
+
 
             QDateTime now = QDateTime::currentDateTime();
             QHash<QString, Task>::iterator itr = m_tasks.begin();
@@ -659,14 +710,19 @@ void Sak::workingOnTask(const QString& taskName, const QString& subTask)
                 itr++;
             }
 
-            // if !subTask.isEmpty() ...
-
             t.hits[subTask] << Task::Hit(now, m_currentInterval);
             m_incremental->addPiece(t.title, subTask, now, m_currentInterval);
             t.checkConsistency();
             QList<QTreeWidgetItem*> items = tasksTree->findItems (t.title, Qt::MatchExactly, 0);
             if (!items.isEmpty())
                 items.first()->setText(1, QString("%1 hours worked till now (overestimated %2)").arg(t.totHours).arg(t.totOverestimation));
+
+            // update subtask if new added!
+            t.updateSubTasks();
+
+            // update statistics
+            m_editedTasks = m_tasks;
+            selectedStartDate(cal1->selectedDate());
         }
     }
     clearView();
@@ -805,18 +861,11 @@ QRect Layouting( const QList<SakWidget*>& sortedWidgets)
     return QRect(QPoint(r.x(), r.y()), QSize(r.width(), (int)(0.25 * r.height())));
 }
 
+
 void Sak::popup()
 {
-#if 0
-#ifdef Q_OS_LINUX
-    // fix interaction with yakuake
-    QPushButton* focusCatcher = new QPushButton("Polling...", 0);
-    focusCatcher->show();
-    //focusCatcher->move(-1000,-1000);
-    focusCatcher->setWindowFlags(focusCatcher->windowFlags() | Qt::FramelessWindowHint);
-    QMetaObject::invokeMethod(focusCatcher, "deleteLater", Qt::QueuedConnection);
-#endif
-#endif
+    m_subtaskView = false;
+
     if (sender() == previewButton) {
         m_previewing = true;
     }
@@ -896,7 +945,7 @@ void Sak::popup()
     exitItem->setZValue(1e8);
     exitItem->show();
 
-    m_view->setGeometry( QRect(qApp->desktop()->screenGeometry()) );
+    m_view->setGeometry( QRect(qApp->desktop()->screenGeometry())/*.adjusted(200,200,-200,-200 )*/ );
     m_view->show();
     m_view->raise();
     m_view->setFocus();
@@ -905,9 +954,85 @@ void Sak::popup()
 
 
 void Sak::popupSubtasks(const QString& taskname) {
+    m_subtaskView = true;
+
     foreach(SakWidget* w, m_widgets.values()) {
         w->hide();
     }
+    QHash<QString, Task>::const_iterator itr = m_tasks.find(taskname);
+    if (itr == m_tasks.end()) {
+        workingOnTask(taskname, "");
+        return;
+    }
+    const Task& t(*itr);
+    QHash< QString, Task::SubTask >::const_iterator titr = t.subTasks.begin(), tend = t.subTasks.end();
+    m_subwidgets.clear();
+    QDateTime now(QDateTime::currentDateTime());
+    while(titr != tend) {
+        if (!titr->active) continue;
+        SakSubWidget* test = new SakSubWidget(t, *titr);
+        test->setVisible(true);
+        connect (test, SIGNAL(clicked(const QString&, const QString&)), this, SLOT(workingOnTask(const QString&, const QString&)));
+
+
+        QDateTime rank=now;
+        QHash< QString, QList< QString > >::const_iterator hhitr = m_subtaskSelectionHistory.find(t.title);
+        if (hhitr != m_subtaskSelectionHistory.end()) {
+            int index = hhitr->indexOf(titr->title);
+            if (index != 0) rank = now.addDays(index+1);
+        }
+        if (rank == now) {
+            QHash< QString, QList<Task::Hit> >::const_iterator hitr = t.hits.find(titr.key());
+            if (hitr != t.hits.end()) {
+                if ( hitr.value().count() &&  hitr.value().last().timestamp.isValid())
+                    rank = hitr.value().last().timestamp;
+                else
+                    rank = now.addDays(-999);
+            }
+        }
+        m_subwidgets.insertMulti( - rank.toTime_t(), test);
+        titr++;
+    }
+
+    const QList<SakSubWidget*>& values = m_subwidgets.values();
+
+//    QRect messageRect = Layouting((const QList<SakWidget*>&)values);
+
+    QRect r = QDesktopWidget().geometry();
+    int w = 400;
+    int h = 40;
+
+    m_subwidgetsIterator = m_subwidgets.begin();
+    m_subWidgetRank = 0;
+
+    SakSubWidget* tmpSw = new SakSubWidget(t, Task::SubTask(), true);
+    m_view->scene()->addItem(tmpSw);
+    tmpSw->setGeometry(QRectF(0,0,w,h));
+    connect (tmpSw, SIGNAL(clicked(const QString&, const QString&)), this, SLOT(workingOnTask(const QString&, const QString&)));
+
+    m_subwidgets.insertMulti(QDateTime::currentDateTime().addDays(999).toTime_t(), tmpSw);
+
+    for(int i=0; i<values.size(); i++) {
+        SakSubWidget* sw = values[i];
+        sw->setGeometry(QRectF(0,0,w,h));
+        m_view->scene()->addItem(sw);
+        sw->show();
+    }
+
+    m_subWidgetRank += values.size() != 0;
+
+    if (m_subwidgetsIterator != m_subwidgets.end()) {
+        m_subwidgetsIterator.value()->showDetails(true);
+        m_view->scene()->setFocusItem(m_subwidgetsIterator.value(), Qt::MouseFocusReason);
+        m_subwidgetsIterator.value()->widget()->setFocus(Qt::MouseFocusReason);
+    } else {
+        m_view->scene()->setFocusItem(tmpSw, Qt::MouseFocusReason);
+        tmpSw->widget()->setFocus(Qt::MouseFocusReason);
+    }
+
+    layoutSubTasks(m_subwidgets, m_subWidgetRank);
+
+
 }
 
 //END   Tasks >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -964,7 +1089,7 @@ void Sak::setupSettingsWidget()
     
     QSettings settings("ZanzaSoft", "SAK");
     durationSpinBox = new QSpinBox;
-    durationSpinBox->setSingleStep(15);
+    durationSpinBox->setSingleStep(1);
     durationSpinBox->setRange(1, 1440);
     durationSpinBox->setSuffix(" minutes");
     durationSpinBox->setValue(qMin(1440, qMax(1, settings.value("Ping interval", 15).toInt())));

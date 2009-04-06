@@ -61,6 +61,16 @@ double Task::workedHours(const QDateTime& from, const QDateTime& to) const
 }
 
 
+void Task::updateSubTasks()
+{
+    const QList<QString>& subtasks( hits.keys() );
+    for(int i=0; i<subtasks.count(); i++) {
+        if (!subTasks.contains(subtasks[i])) {
+            subTasks[subtasks[i]].title = subtasks[i];
+        }
+    }
+}
+
 bool Task::checkConsistency()
 {
     QList<HitElement> hitlist;

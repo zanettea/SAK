@@ -11,9 +11,10 @@ struct Task
 {
     struct SubTask
     {
-        SubTask(const QString& t=QString()) : title(t) {}
+        SubTask(const QString& t=QString()) : title(t), bgColor(200,200,200), fgColor(0,0,0), active(true) {}
         QString title, description;
         QColor bgColor, fgColor;
+        bool active;
     };
 
     struct Hit
@@ -33,6 +34,7 @@ struct Task
     QHash< QString, QList< Hit > > hits; // hits for each subtask
     bool active;
 
+    void updateSubTasks();
     double totHours, totOverestimation;
     double workedHours(const QDateTime& from, const QDateTime& to) const;
     // also set totHours
