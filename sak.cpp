@@ -5,6 +5,7 @@
 
 
 #include <QtGui>
+#include <QCryptographicHash>
 #include <QSettings>
 
 #include "sak.h"
@@ -118,7 +119,21 @@ void Sak::init()
     QByteArray tasksArray = settings.value("tasks").toByteArray();
     QDataStream stream(&tasksArray, QIODevice::ReadWrite);
     stream.setVersion(QDataStream::Qt_4_3);
-    stream >> m_tasks;
+
+
+    { // read locastasks
+        QDir saveDir(QFileInfo(settings.fileName()).dir());
+        saveDir.mkdir("SakTasks");
+        saveDir.cd("SakTasks");
+        QStringList nameFilters;
+        nameFilters << "*.xml";
+        QStringList files = saveDir.entryList( nameFilters, QDir::Files);
+        foreach (QString taskXmlFileName, files) {
+            Task t( loadTaskFromFile(saveDir.filePath(taskXmlFileName)) );
+            m_tasks[t.title] = t;
+        }
+    }
+
 
     // add subtasks, if missing
     {
@@ -228,6 +243,58 @@ void Sak::stop()
     }
 }
 
+Task Sak::loadTaskFromFile(const QString& filePath)
+{
+    QFile taskXmlFile(filePath);
+    Task t;
+    qDebug() << "Examine task file " << taskXmlFile.fileName();
+    if (!taskXmlFile.open(QIODevice::ReadOnly)) {
+        qDebug() << "Failed opening xml file " << taskXmlFile.fileName();
+    }
+    QByteArray data = taskXmlFile.readLine();
+    QXmlStreamReader stream(data);
+    QXmlStreamReader::TokenType token = stream.readNext(); // skip StartDocument
+    token = stream.readNext();
+    if ( token != QXmlStreamReader::Comment) {
+        qDebug() << "Skip file " << taskXmlFile.fileName() << " (want a file starting with a comment representing MD5, got" << token << ")";
+        return t;
+    }
+    QString md5 = stream.text().toString().trimmed();
+    qDebug() << "md5 = " << md5;
+
+    // check md5
+    data = taskXmlFile.readAll();
+    if ( md5 !=  QCryptographicHash::hash(data, QCryptographicHash::Md5).toHex() ) {
+        qDebug() << "Skip file " << taskXmlFile.fileName() << " (bad md5 sum)";
+        return t;
+    }
+
+    // read rest of data
+    stream.clear();
+    stream.addData(data);
+
+    if ( stream.readNext() != QXmlStreamReader::StartDocument) {
+        qDebug() << "Skip file " << taskXmlFile.fileName() << " (want start document)";
+        return t;
+    }
+    stream >> t;
+    if (stream.error() != QXmlStreamReader::NoError) {
+        qDebug() << "Error reading task data from file " << taskXmlFile.fileName() << ":" << stream.errorString();
+        return Task();
+    }
+    //            QFile tmp("/tmp/" + t.title + ".xml");
+    //            tmp.open(QIODevice::ReadWrite);
+    //            QXmlStreamWriter ss(&tmp);
+    //            ss.setAutoFormatting(true);
+    //            ss.setAutoFormattingIndent(2);
+    //            ss.writeStartDocument();
+    //            ss << t;
+    //            ss.writeEndDocument();
+    //            tmp.close();
+    else
+        return t;
+}
+
 void Sak::flush()
 {
     if (!m_settings) return;
@@ -241,22 +308,46 @@ void Sak::flush()
     settings.setValue("Ping interval", durationSpinBox->value());
     settings.setValue("Message", bodyEdit->toPlainText());
     settings.sync();
+
+    QDir saveDir(QFileInfo(settings.fileName()).dir());
+    saveDir.mkdir("SakTasks");
+    saveDir.cd("SakTasks");
+    foreach(Task t, m_tasks) {
+        if (t.title.isEmpty()) continue;
+        QFile xmlTaskSave(saveDir.filePath(t.title + ".xml"));
+        QByteArray taskArray;
+        QXmlStreamWriter stream(&taskArray);
+        stream.setAutoFormatting(true);
+        stream.setAutoFormattingIndent(2);
+        stream.writeStartDocument();
+        stream << t;
+        stream.writeEndDocument();
+        xmlTaskSave.open(QIODevice::ReadWrite | QIODevice::Truncate);
+        qDebug() << "Saving xml to file " << xmlTaskSave.fileName();
+        QByteArray hash;
+        hash.append("<!-- ");
+        hash.append( QCryptographicHash::hash(taskArray, QCryptographicHash::Md5).toHex() );
+        hash.append(" -->\n");
+        xmlTaskSave.write(hash);
+        xmlTaskSave.write(taskArray);
+        xmlTaskSave.close();
+    }
     m_incremental->clearAddedPieces();
 }
 
-void Sak::saveAsDb()
-{
-    if (!m_settings) return;
-    QString fileName = QFileDialog::getSaveFileName();
-    QFile file(fileName);
-    file.remove();
-    flush();
-    QSettings settings("ZanzaSoft", "SAK");
-    QFile file1(settings.fileName());
-    if (!file1.copy(fileName)) {
-        qWarning() << "Error copying " << settings.fileName() << " to " << fileName << file1.errorString();
-    }
-}
+//void Sak::saveAsDb()
+//{
+//    if (!m_settings) return;
+//    QString fileName = QFileDialog::getSaveFileName();
+//    QFile file(fileName);
+//    file.remove();
+//    flush();
+//    QSettings settings("ZanzaSoft", "SAK");
+//    QFile file1(settings.fileName());
+//    if (!file1.copy(fileName)) {
+//        qWarning() << "Error copying " << settings.fileName() << " to " << fileName << file1.errorString();
+//    }
+//}
 
 void Sak::exportDbCsv()
 {
@@ -287,22 +378,57 @@ void Sak::sendByEmail()
     if (!m_settings) return;
     flush();
     QSettings settings("ZanzaSoft", "SAK");
-    QProcess::startDetached("kmail -s \"Sak db backup\" --body \"Enjoy the send by email feature of Sak. Bye. \" --attach \"" + settings.fileName() + "\"");
+    QString command = "kmail -s \"Sak db backup\" --body \"Enjoy the send by email feature of Sak. Bye. \" --attach \"" + settings.fileName() + "\" ";
+
+    QDir saveDir(QFileInfo(settings.fileName()).dir());
+    saveDir.mkdir("SakTasks");
+    saveDir.cd("SakTasks");
+    QStringList nameFilters;
+    nameFilters << "*.xml";
+    QStringList files = saveDir.entryList( nameFilters, QDir::Files);
+    foreach (QString taskXmlFileName, files) {
+        command += " --attach \"" + saveDir.filePath(taskXmlFileName) + "\" ";
+    }
+    QProcess::startDetached(command);
 }
 
 void Sak::open()
 {
-    QString fileName = QFileDialog::getOpenFileName(0, "Open db", "Select a new db");
-    QFile file(fileName);
-    if (!file.exists()) {
-        QMessageBox::warning(0, "Cannot find db", QString("Cannot find db file %1").arg(fileName));
-    }
-    if (QMessageBox::Ok == QMessageBox::question(0, "Save current db", "Current db will be overwritten by the new db: do you want to backup it to file before?", QMessageBox::Ok | QMessageBox::No, QMessageBox::No) ) {
-        saveAsDb();
-    }
-    destroy();
+    QStringList fileNames = QFileDialog::getOpenFileNames(0, "Open a new task", QString(), "*.xml" );
+    foreach(QString fileName, fileNames) {
+        QFile file(fileName);
+        if (!file.exists()) {
+            QMessageBox::warning(0, "Cannot find task", QString("Cannot find task file %1").arg(fileName));
+        }
 
-    file.copy(QSettings().fileName());
+        QSettings settings("ZanzaSoft", "SAK");
+        QDir saveDir(QFileInfo(settings.fileName()).dir());
+        saveDir.mkdir("SakTasks");
+        saveDir.cd("SakTasks");
+
+        if ( QFile(saveDir.filePath(QFileInfo(fileName).completeBaseName())).exists() ) {
+            QMessageBox::Button b = QMessageBox::question(0, "Save current task", "Current task will be overwritten by the new task: do you want to backup it to file before?", QMessageBox::Ok | QMessageBox::No | QMessageBox::Cancel, QMessageBox::No) ;
+            if (b == QMessageBox::Cancel) { continue; }
+            else {
+                m_backupper->doCyclicBackup();
+                if (b == QMessageBox::No) {
+                    Task t = loadTaskFromFile(file.fileName());
+                    QHash< QString, QList< Task::Hit > > ::const_iterator itr = t.hits.begin(), end = t.hits.end();
+                    while(itr != end) {
+                        QString subtask = itr.key();
+                        foreach(Task::Hit hit, itr.value())
+                            m_incremental->addPiece(t.title, subtask, hit.timestamp, hit.duration);
+                        itr++;
+                    }
+                    interactiveMergeHits();
+                } else if (b == QMessageBox::Ok) {
+                    file.copy(saveDir.filePath(QFileInfo(fileName).completeBaseName()));
+                }
+            }
+        }
+    }
+
+    destroy();
     init();
     m_settings->show();
     start();
@@ -1148,7 +1274,7 @@ void Sak::setupSettingsWidget()
     QMenu* dbMenu =  mainMenu->addMenu("Db");
     dbMenu->addAction(flushAction);
     dbMenu->addAction(openAction);
-    dbMenu->addAction(saveAsDbAction);
+//    dbMenu->addAction(saveAsDbAction);
     dbMenu->addAction(exportDbCsvAction);
     dbMenu->addAction(sendByEmailAction);
     QMenu* actionsMenu =  mainMenu->addMenu("Actions");
@@ -1372,7 +1498,7 @@ void Sak::createActions()
     connect(flushAction, SIGNAL(triggered()), this, SLOT(flush()));
 
     saveAsDbAction = new QAction(tr("Backup as"), m_settings);
-    connect(saveAsDbAction, SIGNAL(triggered()), this, SLOT(saveAsDb()));
+//    connect(saveAsDbAction, SIGNAL(triggered()), this, SLOT(saveAsDb()));
 
     exportDbCsvAction = new QAction(tr("Export hits in CSV format"), m_settings);
     connect(exportDbCsvAction, SIGNAL(triggered()), this, SLOT(exportDbCsv()));
@@ -1380,7 +1506,7 @@ void Sak::createActions()
     sendByEmailAction = new QAction(tr("Send by email (with kmail)"), m_settings);
     connect(sendByEmailAction, SIGNAL(triggered()), this, SLOT(sendByEmail()));
 
-    openAction = new QAction(tr("Open a db backupt"), m_settings);
+    openAction = new QAction(tr("Import a task from file"), m_settings);
     connect(openAction, SIGNAL(triggered()), this, SLOT(open()));
 
     m_addHitAction = new QAction("Add hit", m_settings);

@@ -129,7 +129,6 @@ QWidget *SubTaskItemDelegate::createEditor(QWidget *parent,
     editor->setEditable(true);
 
     int j = -1;
-    int i=0;
     QString taskTitle = index.model()->index(index.row(), index.column()-1, index.parent()).data().toString();
 
     QHash<QString, Task>::iterator titr = m_sak->tasks()->find(taskTitle);

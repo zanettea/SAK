@@ -25,7 +25,8 @@ SOURCES += main.cpp \
     sakmessageitem.cpp \
     pixmapviewer.cpp \
     task.cpp \
-    saksubwidget.cpp
+    saksubwidget.cpp \
+    backupper.cpp
 win32:
 unix { 
     contains(CONFIG, argb):DEFINES += ARGB

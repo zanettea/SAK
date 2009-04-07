@@ -2,6 +2,8 @@
 #define TASK_H_
 
 #include <QtGui>
+#include <QXmlStreamWriter>
+#include <QXmlStreamReader>
 #include <math.h>
 
 #define DATETIMEFORMAT "yyyy/MM/dd hh:mm:ss"
@@ -75,6 +77,10 @@ QDataStream & operator>> ( QDataStream & in, Task & task );
 
 QDataStream & operator<< ( QDataStream & out, const Task::Hit & hit );
 QDataStream & operator>> ( QDataStream & in, Task::Hit & hit );
+
+
+QXmlStreamWriter & operator<< ( QXmlStreamWriter & out, const Task & task );
+QXmlStreamReader & operator>> ( QXmlStreamReader & in, Task & task );
 
 
 #endif

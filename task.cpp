@@ -41,6 +41,182 @@ QDataStream & operator>> ( QDataStream & in, Task::Hit & hit )
 }
 
 
+QXmlStreamWriter & operator<< ( QXmlStreamWriter & out, const Task & task )
+{
+    out.writeStartElement("Task");
+
+    out.writeAttribute("title", task.title);
+    out.writeAttribute("bgcolor", task.bgColor.name());
+    out.writeAttribute("fgcolor", task.fgColor.name());
+    out.writeAttribute("active", QString("%1").arg(task.active));
+
+    out.writeStartElement("Description");
+    out.writeCharacters(task.description);
+    out.writeEndElement();
+
+    out.writeStartElement("Icon");
+    QByteArray bytes;
+    QBuffer buffer(&bytes);
+    buffer.open(QIODevice::WriteOnly);
+    task.icon.save(&buffer, "PNG"); // writes pixmap into bytes in PNG format
+    out.writeCharacters(bytes.toBase64());
+    out.writeEndElement();
+
+    out.writeStartElement("Subtasks");
+    QHash< QString, QList< Task::Hit > >::const_iterator itr = task.hits.begin(), end = task.hits.end();
+    while(itr != end) {
+        out.writeStartElement("Subtask");
+        out.writeAttribute("title", itr.key());
+        QHash< QString, Task::SubTask >::const_iterator sitr = task.subTasks.find(itr.key());
+        if (sitr != task.subTasks.end()) {
+            const Task::SubTask& st(sitr.value());
+            out.writeAttribute("bgcolor", st.bgColor.name());
+            out.writeAttribute("fgcolor", st.fgColor.name());
+            out.writeAttribute("active", QString("%1").arg(st.active));
+            out.writeStartElement("Description");
+            out.writeCharacters(st.description);
+            out.writeEndElement();
+        }
+        out.writeStartElement("Hits");
+        const QList<Task::Hit>&  h(itr.value());
+        for(int i=h.count()-1; i>=0; i--) {
+            if (h[i].timestamp.isValid()) {
+                out.writeEmptyElement("h");
+                out.writeAttribute("t", h[i].timestamp.toString(DATETIMEFORMAT));
+                out.writeAttribute("d", QString("%1").arg(h[i].duration));
+            }
+        }
+        out.writeEndElement();
+        out.writeEndElement();
+        itr++;
+    }
+    out.writeEndElement();
+
+    out.writeEndElement();
+    return out;
+}
+
+
+
+void parseHits(QXmlStreamReader & in, Task & task, const QString subtask)
+{
+    QMultiMap<unsigned int, Task::Hit> sortedHits;
+    while(!in.atEnd()) {
+        QXmlStreamReader::TokenType token = in.readNext();
+        if (token == QXmlStreamReader::StartElement) {
+            QString elementName = in.name().toString();
+            if (0) {
+            } else if (elementName.compare("h", Qt::CaseInsensitive) == 0){
+                Task::Hit hit;
+                QXmlStreamAttributes attrs = in.attributes();
+                hit.timestamp = QDateTime::fromString(attrs.value("t").toString(), DATETIMEFORMAT);
+                hit.duration = attrs.value("d").toString().toUInt();
+                sortedHits.insertMulti(hit.timestamp.toTime_t(), hit);
+            }
+        } else {
+            //qDebug() << " > token type " << token;
+        }
+    }
+    task.hits[subtask] = sortedHits.values();
+}
+
+
+
+void parseSubtask(QXmlStreamReader & in, Task & task)
+{
+    QXmlStreamAttributes attrs = in.attributes();
+    QString title = attrs.value("title").toString();
+    Task::SubTask& st(task.subTasks[title]);
+    QStringRef bgColor = attrs.value("bgcolor");
+    QStringRef fgColor = attrs.value("fgcolor");
+    QStringRef active = attrs.value("active");
+    if (!bgColor.isEmpty())
+        st.bgColor = QColor(fgColor.toString());
+    if (!fgColor.isEmpty())
+        st.fgColor = QColor(bgColor.toString());
+    if (!active.isEmpty())
+        st.active = active.toString().toUInt();
+
+    // read subtask
+    while(!in.atEnd()) {
+        QXmlStreamReader::TokenType token = in.readNext();
+        if (token == QXmlStreamReader::StartElement) {
+            QString elementName = in.name().toString();
+            if (0) {
+            } else if (elementName.compare("description", Qt::CaseInsensitive) == 0){
+                st.description = in.readElementText();
+            } else if (elementName.compare("hits", Qt::CaseInsensitive) == 0) {
+                parseHits(in, task, st.title);
+            }
+        } else {
+            //qDebug() << " > token type " << token;
+        }
+    }
+}
+
+void parseSubtasks(QXmlStreamReader & in, Task & task)
+{
+    while(!in.atEnd()) {
+        QXmlStreamReader::TokenType token = in.readNext();
+        if (token == QXmlStreamReader::StartElement ) {
+            QString elementName = in.name().toString();
+            if (0) {
+            } else if (elementName.compare("subtask", Qt::CaseInsensitive) == 0) {
+                parseSubtask(in, task);
+            }
+        } else {
+            //qDebug() << " > token type " << token;
+        }
+    }
+}
+
+
+QXmlStreamReader & operator>> ( QXmlStreamReader & in, Task & task )
+{
+    QXmlStreamReader::TokenType token = in.readNext();
+    if (!in.atEnd() && token != QXmlStreamReader::StartElement) {
+        in.raiseError("Expected start of Task element, got " + QString("%1").arg(token));
+    }
+    if (!in.atEnd() && in.name().toString().compare("Task",Qt::CaseInsensitive)) {
+        in.raiseError("Expected token name \"Task\", got " + in.name().toString());
+    }
+    if (!in.atEnd()) {
+        QXmlStreamAttributes attrs = in.attributes();
+        task.title = attrs.value("title").toString();
+        QStringRef bgColor = attrs.value("bgcolor");
+        QStringRef fgColor = attrs.value("fgcolor");
+        QStringRef active = attrs.value("active");
+        if (!bgColor.isEmpty())
+            task.bgColor = QColor(bgColor.toString());
+        if (!fgColor.isEmpty())
+            task.fgColor = QColor(fgColor.toString());
+        if (!active.isEmpty())
+            task.active = active.toString().toUInt();
+
+        QXmlStreamReader::TokenType token;
+        while(!in.atEnd()) {
+            token = in.readNext();
+            if (token == QXmlStreamReader::StartElement) {
+                QString elementName = in.name().toString();
+                if (0) {
+                } else if (elementName.compare("description", Qt::CaseInsensitive) == 0) {
+                    task.description = in.readElementText();
+                } else if (elementName.compare("icon", Qt::CaseInsensitive) == 0) {
+                    task.icon.loadFromData(QByteArray::fromBase64(in.readElementText().toAscii()), "PNG");
+                } else if (elementName.compare("subtasks", Qt::CaseInsensitive) == 0) {
+                    parseSubtasks(in, task);
+                }
+            } else {
+                //qDebug() << "token type " << token;
+            }
+        }
+    }
+    return in;
+}
+
+
+
+
 double Task::workedHours(const QDateTime& from, const QDateTime& to) const
 {
     double worked = 0;

@@ -41,9 +41,10 @@ protected:
 public slots:
     void start();
     void stop();
+    Task loadTaskFromFile(const QString& filePath);
     void flush();
     void open();
-    void saveAsDb();
+//    void saveAsDb();
     void exportDbCsv();
     void sendByEmail();
 protected slots:
