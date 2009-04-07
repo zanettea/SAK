@@ -46,24 +46,12 @@ void SakSubWidget::showDetails(bool show)
 
 void SakSubWidget::focusOutEvent ( QFocusEvent * event )
 {
-    m_palette.setColor(QPalette::Inactive, QPalette::Button, m_subtask.bgColor);
-    m_palette.setColor(QPalette::Active, QPalette::Button, m_subtask.bgColor);
-
-    m_palette.setColor(QPalette::Inactive, QPalette::ButtonText, m_subtask.fgColor);
-    m_palette.setColor(QPalette::Active, QPalette::ButtonText, m_subtask.fgColor);
-
     setPalette(m_palette);
     QGraphicsProxyWidget::focusOutEvent(event);
 }
 
 void SakSubWidget::focusInEvent ( QFocusEvent * event )
 {
-    m_palette.setColor(QPalette::Inactive, QPalette::Button, m_subtask.fgColor);
-    m_palette.setColor(QPalette::Active, QPalette::Button, m_subtask.fgColor);
-
-    m_palette.setColor(QPalette::Inactive, QPalette::ButtonText, m_subtask.bgColor);
-    m_palette.setColor(QPalette::Active, QPalette::ButtonText, m_subtask.bgColor);
-
     setPalette(m_palette);
     QGraphicsProxyWidget::focusInEvent(event);
     emit focused();
@@ -71,7 +59,7 @@ void SakSubWidget::focusInEvent ( QFocusEvent * event )
 
 
 void SakSubWidget::keyPressEvent ( QKeyEvent * event ) {
-    if (event->key() == Qt::Key_Return) {
+    if (event->key() == Qt::Key_Return &&  ( (event->modifiers() &  Qt::ControlModifier) || (event->modifiers() &  Qt::ShiftModifier)) ) {
         event->accept();
         emit clicked(m_task.title, !m_editable ? m_subtask.title : ((QLineEdit*)widget())->text());
     } else if (!m_editable && event->key() == Qt::Key_Space) {
@@ -83,7 +71,9 @@ void SakSubWidget::keyPressEvent ( QKeyEvent * event ) {
 
 void SakSubWidget::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* e)
 {
-    emit clicked(m_task.title, m_subtask.title);
+    if (!m_editable) {
+        emit clicked(m_task.title, !m_editable ? m_subtask.title : ((QLineEdit*)widget())->text());
+    }
     QGraphicsProxyWidget::mouseDoubleClickEvent(e);
 }
 

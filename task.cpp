@@ -1,45 +1,6 @@
 #include "task.h"
 #include <math.h>
 
-QDataStream & operator<< ( QDataStream & out, const Task & task )
-{
-    out << task.title;
-    out << task.description;
-    out << task.icon;
-    out << task.bgColor;
-    out << task.fgColor;
-    out << task.active;
-    out << task.hits;
-    return out;
-}
-
-QDataStream & operator>> ( QDataStream & in, Task & task )
-{
-    in >> task.title;
-    in >> task.description;
-    in >> task.icon;
-    in >> task.bgColor;
-    in >> task.fgColor;
-    in >> task.active;
-    in >> task.hits;
-    return in;
-}
-
-
-QDataStream & operator<< ( QDataStream & out, const Task::Hit & hit )
-{
-    out << hit.timestamp;
-    out << hit.duration;
-    return out;
-}
-
-QDataStream & operator>> ( QDataStream & in, Task::Hit & hit )
-{
-    in >> hit.timestamp;
-    in >> hit.duration;
-    return in;
-}
-
 
 QXmlStreamWriter & operator<< ( QXmlStreamWriter & out, const Task & task )
 {
@@ -143,9 +104,9 @@ void parseSubtask(QXmlStreamReader & in, Task & task)
     QStringRef fgColor = attrs.value("fgcolor");
     QStringRef active = attrs.value("active");
     if (!bgColor.isEmpty())
-        st.bgColor = QColor(fgColor.toString());
+        st.bgColor = QColor(bgColor.toString());
     if (!fgColor.isEmpty())
-        st.fgColor = QColor(bgColor.toString());
+        st.fgColor = QColor(fgColor.toString());
     if (!active.isEmpty())
         st.active = active.toString().toUInt();
 

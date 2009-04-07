@@ -7,6 +7,7 @@
 #include <QtGui>
 #include <QCryptographicHash>
 #include <QSettings>
+#include <QGraphicsEllipseItem>
 
 #include "sak.h"
 #include "backupper.h"
@@ -301,11 +302,11 @@ void Sak::flush()
     if (!m_settings) return;
     m_backupper->doCyclicBackup();
     QSettings settings("ZanzaSoft", "SAK");
-    QByteArray tasksArray;
-    QDataStream stream(&tasksArray, QIODevice::ReadWrite);
-    stream.setVersion(QDataStream::Qt_4_0);
-    stream << m_tasks;
-    settings.setValue("tasks", tasksArray);
+//    QByteArray tasksArray;
+//    QDataStream stream(&tasksArray, QIODevice::ReadWrite);
+//    stream.setVersion(QDataStream::Qt_4_0);
+//    stream << m_tasks;
+//    settings.setValue("tasks", tasksArray);
     settings.setValue("Ping interval", durationSpinBox->value());
     settings.setValue("Message", bodyEdit->toPlainText());
     settings.sync();
@@ -666,7 +667,7 @@ void Sak::commitCurrentTask()
     foreach(QTreeWidgetItem* ii, items) {
         ii->setText(0, currentTitle);
         ii->setIcon(0, taskPixmapViewer->pixmap());
-        for (int i=0; i<2; i++) {
+        for (int i=0; i<3; i++) {
             ii->setForeground(i, QColor(t.fgColor));
             ii->setBackground(i, QColor(t.bgColor));
         }
@@ -1168,7 +1169,19 @@ void Sak::popupSubtasks(const QString& taskname) {
         tmpSw->widget()->setFocus(Qt::MouseFocusReason);
     }
 
+    // add a marker to highligh current selection
+    QGraphicsEllipseItem* marker = new QGraphicsEllipseItem(r.width()/2 - 280, r.height()/2 - 51, 20,20);
+    marker->setBrush(Qt::red);
+    m_view->scene()->addItem(marker);
+//    QGraphicsItemAnimation* animation(new QGraphicsItemAnimation);
+//    animation->setItem(marker);
+//    QTimeLine *timer = new QTimeLine(5000);
+//    timer->setFrameRange(0, 100);
+//    animation->setTimeLine(timer);
+//    for (int i = 0; i < 200; ++i)
+//        animation->setScaleAt(i / 200.0, (100.0 + i/40.0)/100.0, (100.0 + i/40.0)/100.0);
     layoutSubTasks(m_subwidgets, m_subWidgetRank);
+//    timer->start();
 
 
 }
