@@ -74,7 +74,7 @@ protected slots:
     void addDefaultHit();
     void interactiveMergeHits();
 private:
-    int m_timerId, m_timeoutPopup;
+    int m_timerId, m_timeoutPopup, m_autoSaveTimer;
     QDateTime m_nextTimerEvent;
     QMainWindow* m_settings;
     QHash<QString, Task> m_tasks;

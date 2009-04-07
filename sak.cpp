@@ -106,6 +106,7 @@ Sak::Sak(QObject* parent)
     m_previewing = false;
     m_changedHit = false;
     m_timerId = 0;
+    m_autoSaveTimer = startTimer(1000 * 60 * 45); // every 45 minutes
     start();
 }
 
@@ -459,6 +460,7 @@ void Sak::destroy()
 
 Sak::~Sak()
 {
+    killTimer(m_autoSaveTimer);
     destroy();
 }
 
@@ -749,6 +751,8 @@ void Sak::timerEvent(QTimerEvent* e)
         trayIcon->showMessage("New away events", "You have missed a check point. Fix it in the detailed hit list.", QSystemTrayIcon::Information,  999999);
 
         clearView();
+    } else if (e->timerId() == m_autoSaveTimer) {
+        flush();
     } else {
         qDebug() << "unknown timer event";
     }

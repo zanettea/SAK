@@ -71,7 +71,7 @@ void SakWidget::setStatistics(double dailyWorked, double weeklyWorked, double mo
     m_dailyPercentage = dailyPercentage;
     m_weeklyPercentage = weeklyPercentage;
     m_monthlyPercentage = monthlyPercentage;
-    m_tooltipText = QString("<center><h1>%1</h1></center>%2%3<div>Today: <b>%4</b> h (%5%)<br />Last week: <b>%6</b> h (%7%)<br />Last month: <b>%8</b> h (%9%)</div>").arg(m_task.title).arg(m_task.description.isEmpty() ? "" : "<p>").arg(m_task.description).arg(m_dailyWorked).arg(m_dailyPercentage, 0, 'f', 2).arg(m_weeklyWorked).arg(m_weeklyPercentage, 0, 'f', 2).arg(m_monthlyWorked).arg(m_monthlyPercentage, 0, 'f', 2);
+    m_tooltipText = QString("<div style=\"color:" + m_task.fgColor.name() + "\"><center><h1>%1</h1></center>%2%3<div>Today: <b>%4</b> h (%5%)<br />Last week: <b>%6</b> h (%7%)<br />Last month: <b>%8</b> h (%9%)</div></div>").arg(m_task.title).arg(m_task.description.isEmpty() ? "" : "<p>").arg(m_task.description).arg(m_dailyWorked).arg(m_dailyPercentage, 0, 'f', 2).arg(m_weeklyWorked).arg(m_weeklyPercentage, 0, 'f', 2).arg(m_monthlyWorked).arg(m_monthlyPercentage, 0, 'f', 2);
     m_text->setHtml(m_tooltipText);
     m_redrawCachedPixmapB=true;
 }
@@ -227,6 +227,9 @@ void SakWidget::redrawPixmaps() {
     if (m_redrawCachedPixmap) {
         drawBasicShape(m_cachedPixmap);
         QPainter p(&m_cachedPixmap);
+        QPen pen;
+        pen.setColor(m_task.fgColor);
+        p.setPen(pen);
         if (!m_ic.isNull()) {
             p.drawPixmap((int)(m_rect.width() - m_ic.width())/2, (int)(m_rect.height() - m_ic.height())/2, m_ic);
         } else if ( m_text && !m_sideB) {
