@@ -1131,7 +1131,7 @@ void Sak::popupSubtasks(const QString& taskname) {
 //    QRect messageRect = Layouting((const QList<SakWidget*>&)values);
 
     QRect r = QDesktopWidget().geometry();
-    int w = 400;
+    int w = 500;
     int h = 40;
 
     m_subwidgetsIterator = m_subwidgets.begin();

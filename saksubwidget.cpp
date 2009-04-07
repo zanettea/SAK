@@ -17,6 +17,11 @@ SakSubWidget::SakSubWidget(const Task& task, Task::SubTask subtask, bool editabl
     m_showingDetails=false;
 
     QWidget* b = editable ? (QWidget*)new QLineEdit(subtask.title) : (QWidget*)new QPushButton(subtask.title);
+    if (editable) {
+        ((QLineEdit*)b)->setText("<insert a new, meaningful, subtask title here>");
+        ((QLineEdit*)b)->setSelection(0, 99999);
+        ((QLineEdit*)b)->setAlignment(Qt::AlignCenter);
+    }
     setWidget(b);
     setPalette(m_palette);
 
