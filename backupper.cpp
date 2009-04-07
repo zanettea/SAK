@@ -103,7 +103,7 @@ Incremental::Incremental() {
     lastTimeStamp = QDateTime::currentDateTime();
 }
 
-void Incremental::addPiece(const QString& task, const QString& subTask, const QDateTime& now, unsigned int value) {
+void Incremental::writePiece(const QString& task, const QString& subTask, const QDateTime& now, unsigned int value) {
     QString filename= m_dir.filePath(task + ":" + subTask + "." + now.toString(BACKUPDATEFORMAT) + ".incr");
     addedFiles << filename;
     QFile f(filename);
@@ -113,6 +113,11 @@ void Incremental::addPiece(const QString& task, const QString& subTask, const QD
     stream << value;
     qDebug() << "SAK: write piece of task " << task << " of duration " << Task::hours(value) << " in file " << filename;
     addedPieces[now] = Hit(task, subTask, value);
+    lastTimeStamp = now;
+}
+
+void Incremental::addPiece(const QString& task, const QString& subTask, const QDateTime& now, unsigned int value) {
+    foundPieces.insertMulti(now, Hit(task, subTask, value));
     lastTimeStamp = now;
 }
 

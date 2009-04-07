@@ -462,13 +462,27 @@ void Sak::interactiveMergeHits()
 
     qDebug() << "hits: " << hits.count() << hits.begin().key() << (--hits.end()).key();
     QList<HitElement> okHits (createHitsList(hits.begin().key(), (--hits.end()).key()));
-    qDebug() << okHits.count();
+    QMap<QDateTime, HitElement> tmpHits;
     for(int i=0; i<okHits.count(); i++) {
+        HitElement& cmp(okHits[i]);
+        QMap<QDateTime, HitElement>::iterator itr = hits.find(cmp.timestamp);
+        bool skip=false;
+        while(itr != hits.end() && itr.key() == cmp.timestamp) {
+            const HitElement& cur ( itr.value() );
+            if (cmp.task->title == cur.task->title && cmp.subtask == cur.subtask && cmp.duration == cur.duration) {
+                itr = hits.erase(itr);
+                skip = true;
+            } else itr++;
+        }
+        if (skip) continue;
         okHits[i].editable=false;
-        hits.insertMulti(okHits[i].timestamp, okHits[i]);
+        tmpHits.insertMulti(okHits[i].timestamp, okHits[i]);
     }
 
     qDebug() << "hits: " << hits.count();
+    if (!hits.count()) return;
+    else hits.unite(tmpHits);
+
     populateHitsList(hits.values(), theHitsList);
     mergeDialog.setMinimumWidth(750);
     mergeDialog.setMinimumHeight(600);

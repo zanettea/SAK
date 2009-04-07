@@ -39,6 +39,9 @@ public:
     QList<QString> addedFiles;
     QDir m_dir;
     Incremental();
+    // write a piece to file
+    void writePiece(const QString& task, const QString& subTask, const QDateTime& now, unsigned int value);
+    // add a piece to the list of found pieces
     void addPiece(const QString& task, const QString& subTask, const QDateTime& now, unsigned int value);
     void clearAddedPieces();
     void clearMergedPieces();

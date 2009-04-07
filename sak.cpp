@@ -407,11 +407,17 @@ void Sak::open()
         saveDir.cd("SakTasks");
 
         if ( QFile(saveDir.filePath(QFileInfo(fileName).completeBaseName())).exists() ) {
-            QMessageBox::Button b = QMessageBox::question(0, "Save current task", "Current task will be overwritten by the new task: do you want to backup it to file before?", QMessageBox::Ok | QMessageBox::No | QMessageBox::Cancel, QMessageBox::No) ;
-            if (b == QMessageBox::Cancel) { continue; }
+            QMessageBox mbox(QMessageBox::Warning, "Save current task", "Current task will be overwritten by the new task: do you want to backup it to file before?");
+            QPushButton* overwriteButton = mbox.addButton("Overwrite", QMessageBox::YesRole);
+            QPushButton* mergeButton = mbox.addButton("Merge", QMessageBox::NoRole);
+            QPushButton* cancelButton = mbox.addButton("Cancel", QMessageBox::RejectRole);
+            mbox.setDefaultButton(cancelButton);
+            mbox.exec();
+            QAbstractButton* b = mbox.clickedButton();
+            if (b == cancelButton) { continue; }
             else {
                 m_backupper->doCyclicBackup();
-                if (b == QMessageBox::No) {
+                if (b == mergeButton) {
                     Task t = loadTaskFromFile(file.fileName());
                     QHash< QString, QList< Task::Hit > > ::const_iterator itr = t.hits.begin(), end = t.hits.end();
                     while(itr != end) {
@@ -421,13 +427,14 @@ void Sak::open()
                         itr++;
                     }
                     interactiveMergeHits();
-                } else if (b == QMessageBox::Ok) {
+                } else if (b == overwriteButton) {
                     file.copy(saveDir.filePath(QFileInfo(fileName).completeBaseName()));
                 }
             }
         }
     }
 
+    m_settings->hide();
     destroy();
     init();
     m_settings->show();
@@ -824,7 +831,7 @@ void Sak::workingOnTask(const QString& taskName, const QString& subTask)
 
             if (!merged)
                 t.hits[subTask] << Task::Hit(now, m_currentInterval);
-            m_incremental->addPiece(t.title, subTask, now, m_currentInterval);
+            m_incremental->writePiece(t.title, subTask, now, m_currentInterval);
             t.checkConsistency();
             QList<QTreeWidgetItem*> items = tasksTree->findItems (t.title, Qt::MatchExactly, 0);
             if (!items.isEmpty())

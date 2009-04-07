@@ -117,6 +117,18 @@ void parseHits(QXmlStreamReader & in, Task & task, const QString subtask)
             //qDebug() << " > token type " << token;
         }
     }
+
+    // remove duplicates
+    QMultiMap<unsigned int, Task::Hit>::iterator itr =  sortedHits.begin();
+    Task::Hit prev;
+    while(itr != sortedHits.end()) {
+        if (itr.value() == prev)
+            itr = sortedHits.erase(itr);
+        else {
+            prev = itr.value();
+            itr++;
+        }
+    }
     task.hits[subtask] = sortedHits.values();
 }
 
