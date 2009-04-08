@@ -267,8 +267,12 @@ Task Sak::loadTaskFromFile(const QString& filePath)
     // check md5
     data = taskXmlFile.readAll();
     if ( md5 !=  QCryptographicHash::hash(data, QCryptographicHash::Md5).toHex() ) {
-        qDebug() << "Skip file " << taskXmlFile.fileName() << " (bad md5 sum)";
-        return t;
+        if (QMessageBox::No == QMessageBox::warning(0, "Corrupted file!",
+                             QString("Check of file " + taskXmlFile.fileName() + " failed (maybe it has been edited by hand).\nDo you want to load it anyway?" )
+                             ,QMessageBox::Yes | QMessageBox::No) ) {
+            qDebug() << "Skip file " << taskXmlFile.fileName() << " (bad md5 sum)";
+            return t;
+        }
     }
 
     // read rest of data
@@ -633,6 +637,14 @@ bool Sak::settingsEventFilter(QEvent* e)
         QKeyEvent* ke = dynamic_cast<QKeyEvent*>(e);
         if (!ke) return false;
         if ( (ke->key() != Qt::Key_Delete && ke->key() != Qt::Key_Backspace) ) return false;
+        // remove file from disk
+        QDir dir(QFileInfo(QSettings("ZanzaSoft", "SAK").fileName()).dir());
+        dir.cd("SakTasks");
+        QFile file(dir.filePath(currentTask) + ".xml");
+        if ( ! QMessageBox::warning(0, "Permanentely delating task " + currentTask, QString("Do you want to proceed to permanentely delete task " + currentTask + "?") ) ) {
+            return true;
+        }
+        file.remove();
         m_tasks.remove(currentTask);
         QList<QTreeWidgetItem*> selected = tasksTree->selectedItems();
         if (selected.isEmpty()) return false;
@@ -745,13 +757,16 @@ void Sak::timerEvent(QTimerEvent* e)
             m_timerId = startTimer(5000);
             m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(5000);
         }
-    } else if (e->timerId() == m_timeoutPopup && !m_subtaskView) {
+    } else if (e->timerId() == m_timeoutPopup) {
+        // ensure the timer is resetted
         killTimer(m_timeoutPopup);
-        workingOnTask("<away>","");
 
-        trayIcon->showMessage("New away events", "You have missed a check point. Fix it in the detailed hit list.", QSystemTrayIcon::Information,  999999);
-
-        clearView();
+        if (!m_subtaskView) {
+            // if not selecting subtasks clear everything and signal away
+            workingOnTask("<away>","");
+            trayIcon->showMessage("New away events", "You have missed a check point. Fix it in the detailed hit list.", QSystemTrayIcon::Information,  999999);
+            clearView();
+        }
     } else if (e->timerId() == m_autoSaveTimer) {
         flush();
     } else {
@@ -761,6 +776,8 @@ void Sak::timerEvent(QTimerEvent* e)
 
 void Sak::clearView()
 {
+    killTimer(m_timeoutPopup);
+
     if (!m_view) return;
     QGraphicsScene* s = m_view->scene();
     QList<QGraphicsItem*> items = m_view->items();
@@ -851,7 +868,6 @@ void Sak::workingOnTask(const QString& taskName, const QString& subTask)
         }
     }
 
-    killTimer(m_timeoutPopup);
     clearView();
 }
 

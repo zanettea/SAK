@@ -1,5 +1,6 @@
 #include "saksubwidget.h"
 
+static const char * message = "<insert a new, meaningful, subtask title here>";
 
 SakSubWidget::SakSubWidget(const Task& task, Task::SubTask subtask, bool editable) : m_task(task), m_subtask(subtask)
 {
@@ -18,8 +19,7 @@ SakSubWidget::SakSubWidget(const Task& task, Task::SubTask subtask, bool editabl
 
     QWidget* b = editable ? (QWidget*)new QLineEdit(subtask.title) : (QWidget*)new QPushButton(subtask.title);
     if (editable) {
-        ((QLineEdit*)b)->setText("<insert a new, meaningful, subtask title here>");
-        ((QLineEdit*)b)->setSelection(0, 99999);
+        ((QLineEdit*)b)->setText(message);
         ((QLineEdit*)b)->setAlignment(Qt::AlignCenter);
     }
     setWidget(b);
@@ -52,6 +52,8 @@ void SakSubWidget::focusOutEvent ( QFocusEvent * event )
 
 void SakSubWidget::focusInEvent ( QFocusEvent * event )
 {
+    if (m_editable)
+        ((QLineEdit*)widget())->setSelection(0, 99999);
     setPalette(m_palette);
     QGraphicsProxyWidget::focusInEvent(event);
     emit focused();
@@ -72,6 +74,8 @@ void SakSubWidget::keyPressEvent ( QKeyEvent * event ) {
 void SakSubWidget::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* e)
 {
     if (!m_editable) {
+        QString text = ((QLineEdit*)widget())->text();
+        text = text == message ? "" : text;
         emit clicked(m_task.title, !m_editable ? m_subtask.title : ((QLineEdit*)widget())->text());
     }
     QGraphicsProxyWidget::mouseDoubleClickEvent(e);

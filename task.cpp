@@ -74,8 +74,8 @@ void parseHits(QXmlStreamReader & in, Task & task, const QString subtask)
                 hit.duration = attrs.value("d").toString().toUInt();
                 sortedHits.insertMulti(hit.timestamp.toTime_t(), hit);
             }
-        } else {
-            //qDebug() << " > token type " << token;
+        } else if (token == QXmlStreamReader::EndElement && in.name().toString().compare("hits", Qt::CaseInsensitive) == 0) {
+            break;
         }
     }
 
@@ -103,6 +103,7 @@ void parseSubtask(QXmlStreamReader & in, Task & task)
     QStringRef bgColor = attrs.value("bgcolor");
     QStringRef fgColor = attrs.value("fgcolor");
     QStringRef active = attrs.value("active");
+    st.title = title;
     if (!bgColor.isEmpty())
         st.bgColor = QColor(bgColor.toString());
     if (!fgColor.isEmpty())
@@ -121,8 +122,8 @@ void parseSubtask(QXmlStreamReader & in, Task & task)
             } else if (elementName.compare("hits", Qt::CaseInsensitive) == 0) {
                 parseHits(in, task, st.title);
             }
-        } else {
-            //qDebug() << " > token type " << token;
+        } else if (token == QXmlStreamReader::EndElement && in.name().toString().compare("subtask", Qt::CaseInsensitive) == 0) {
+            return;
         }
     }
 }

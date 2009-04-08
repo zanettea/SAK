@@ -229,7 +229,7 @@ QList<HitElement> Sak::createHitsList(const QDateTime& from , const QDateTime& t
             for (int i=0; i<l.count(); i++) {
                 const QDateTime& d = l[i].timestamp;
                 if ( (!from.isValid() || d >= from) && ( !to.isValid() || d <= to) ) {
-                    hits.insert(d, HitElement((Task*)&t, hitr.key(), d, l[i].duration));
+                    hits.insertMulti(d, HitElement((Task*)&t, hitr.key(), d, l[i].duration));
                 }
             }
             hitr++;
