@@ -13,9 +13,9 @@ HitItem::HitItem(const Task* t, const QDateTime& timestamp, unsigned int duratio
     , m_subtask(subtask)
 {
     setPos(timestamp.toTime_t() / 60.0, 0.0);
-    m_rect = QRectF(-(int)duration / 2, -TLH2, duration, TLH );
+    m_rect = QRectF(-(int)duration / 2.0, -TLH2, duration, TLH );
 
-    int halfd = duration/2;
+    float halfd = duration/2.0;
     m_shape.moveTo(-halfd, 0);
     m_shape.lineTo(-halfd+1, -TLH2);
     m_shape.lineTo(halfd-1, -TLH2);
@@ -30,7 +30,8 @@ HitItem::HitItem(const Task* t, const QDateTime& timestamp, unsigned int duratio
     m_bgbrush.setColor(d);
     setVisible(true);
     setZValue(timestamp.toTime_t());
-    setFlag(QGraphicsItem::ItemIsSelectable, true);
+    //setFlag(QGraphicsItem::ItemIsSelectable, true);
+    setFlag(QGraphicsItem::ItemIsFocusable, true);
     setAcceptsHoverEvents(true);
     setToolTip( timestamp.toString(DATETIMEFORMAT) + "\n" + subtask + " @ " + t->title + "\n" + QString("%1").arg(duration) +  " minutes long");
 }
@@ -43,6 +44,49 @@ void HitItem::paint ( QPainter * painter, const QStyleOptionGraphicsItem * optio
     painter->setBrush(m_bgbrush);
     painter->drawPath(m_shape);
     painter->restore();
+}
+
+void HitItem::mousePressEvent(QGraphicsSceneMouseEvent * event)
+{
+    if (cursor().shape() != Qt::SizeHorCursor) {
+        setCursor(QCursor(Qt::SizeAllCursor));
+    }
+}
+
+void HitItem::mouseReleaseEvent(QGraphicsSceneMouseEvent * event)
+{
+    if (cursor().shape() == Qt::SizeAllCursor) {
+        setCursor(m_savedCursor);
+    }
+}
+
+void HitItem::mouseMoveEvent(QGraphicsSceneMouseEvent * event)
+{
+    qDebug() << "mouse move ";
+}
+
+void HitItem::hoverEnterEvent ( QGraphicsSceneHoverEvent * event )
+{
+    m_savedCursor = cursor();
+}
+
+void HitItem::hoverLeaveEvent ( QGraphicsSceneHoverEvent * event )
+{
+    setCursor(m_savedCursor);
+}
+
+void HitItem::hoverMoveEvent ( QGraphicsSceneHoverEvent * event )
+{
+    if (event->lastScreenPos().x() != event->screenPos().x()) {
+        double dsx = event->scenePos().x() - event->lastScenePos().x();
+        double dSx = event->screenPos().x() - event->lastScreenPos().x();
+        double scale = sqrt((dSx*dSx) / (dsx*dsx));
+
+        double one = qMin(1.0, 10.0 / scale);
+        if (event->pos().x() <= m_rect.left()+one || event->pos().x() >= m_rect.right()-one )
+            setCursor(QCursor(Qt::SizeHorCursor));
+        else setCursor(m_savedCursor);
+    }
 }
 
 
@@ -74,7 +118,7 @@ Timeline::~Timeline()
 
 void Timeline::wheelEvent(QWheelEvent* e)
 {
-    if (matrix().m11()<10 || e->delta() < 0)
+    if (matrix().m11()<20 || e->delta() < 0)
         scale(1.0 + 0.1 * e->delta() / 120, 1.0);
     QGraphicsView::wheelEvent(e);
 }
@@ -121,9 +165,16 @@ void Timeline::mouseMoveEvent(QMouseEvent* e)
         m_cursorText->setZValue(1e21);
         m_cursorText->setPos(1,-5);
         m_cursorText->setDefaultTextColor(Qt::red);
+
+        m_cursorText->setAcceptHoverEvents(false);
+        m_cursorLine->setAcceptHoverEvents(false);
+        m_cursorText->setEnabled(false);
+        m_cursorLine->setEnabled(false);
+        m_cursorLine->setAcceptedMouseButtons(Qt::NoButton);
+        m_cursorText->setAcceptedMouseButtons(Qt::NoButton);
     }
 
-    unsigned int pos = mapToScene(e->pos()).x();
+    double pos = mapToScene(e->pos()).x();
     m_cursorLine->setPos(QPointF(pos, 0));
     m_cursorText->setPlainText(QDateTime::fromTime_t(pos*60.0).toString(DATETIMEFORMAT));
 
@@ -139,11 +190,18 @@ void Timeline::setPeriod(const QDateTime& from, const QDateTime& to)
     scene()->removeItem(m_bg);
     delete m_bg;
     m_bg = new QGraphicsRectItem(scene()->sceneRect());
-    m_bg->setBrush(QColor(240,240,240));
+    QLinearGradient g(QPointF(0, -TLH2), QPointF(0, TLH2));
+    g.setColorAt(0.0, QColor(80,80,80));
+    g.setColorAt(0.5, QColor(240,240,240));
+    g.setColorAt(1.0, QColor(80,80,80));
+    m_bg->setBrush(g);
     m_bg->setPen(Qt::NoPen);
     m_bg->setZValue(-999999);
     m_bg->setPos(0,0);
     m_bg->setVisible(true);
+    m_bg->setAcceptHoverEvents(false);
+    m_bg->setEnabled(false);
+    m_bg->setAcceptedMouseButtons(Qt::NoButton);
     scene()->addItem(m_bg);
 }
 

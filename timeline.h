@@ -14,6 +14,13 @@ public:
     QDateTime timestamp() const { return m_t; }
     unsigned int duration() const { return m_d; }
     QString subtask() const { return m_subtask; }
+protected:
+    void mousePressEvent(QGraphicsSceneMouseEvent * event);
+    void mouseReleaseEvent(QGraphicsSceneMouseEvent * event);
+    void mouseMoveEvent(QGraphicsSceneMouseEvent * event);
+    void hoverEnterEvent ( QGraphicsSceneHoverEvent * event );
+    void hoverLeaveEvent ( QGraphicsSceneHoverEvent * event );
+    void hoverMoveEvent ( QGraphicsSceneHoverEvent * event );
 private:
     const Task* m_task;
     QRectF m_rect;
@@ -23,6 +30,7 @@ private:
     QPainterPath m_shape;
     QPen m_pen;
     QBrush m_bgbrush;
+    QCursor m_savedCursor;
 };
 
 class Timeline : public QGraphicsView
