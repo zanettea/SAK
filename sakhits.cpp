@@ -260,7 +260,6 @@ void Sak::saveHitChanges()
 {
     if (m_changedHit) {
         if ( QMessageBox::question ( 0, "Hit list changed", "Hit list has changed: do you want to save changes?", QMessageBox::Save | QMessageBox::Discard,  QMessageBox::Discard) == QMessageBox::Save ) {
-            qDebug() << "save changes!!!!";
             m_tasks = m_editedTasks;
         }
         m_changedHit=false;
@@ -310,6 +309,7 @@ void Sak::selectedStartDate(const QDate& date)
     cal2->setMinimumDate(date);
     cal4->setMinimumDate(date);
     populateHitsList(createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
+    hitsTimeline->setPeriod(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate()));
 }
 
 void Sak::selectedEndDate(const QDate& date)
@@ -325,6 +325,7 @@ void Sak::selectedEndDate(const QDate& date)
         cal4->setSelectedDate(cal1->selectedDate());
     }
     populateHitsList(createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
+    hitsTimeline->setPeriod(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate()));
 }
 
 
@@ -344,7 +345,7 @@ void Sak::hitsListItemChanged(QTreeWidgetItem* i, int column)
         QList< Task::Hit >& origList(et.hits[origHit.subtask]);
 
         int hitPosition = origList.indexOf(Task::Hit(origHit.timestamp, origHit.duration));
-        Q_ASSERT(hitPosition != origList.size());
+        if (hitPosition==-1) return;
         if (!m_editedTasks.contains(i->text(1))) {
             i->setText(1, t.title);
             qDebug() << "Task " << i->text(1) << " does not exists -> undo change";
@@ -372,7 +373,51 @@ void Sak::hitsListItemChanged(QTreeWidgetItem* i, int column)
     hitsList->blockSignals(false);
 }
 
-//static int HitMetatype = qRegisterMetaType<Hit>("Hit");
+void Sak::hitsSelectedInList(QTreeWidgetItem* current, QTreeWidgetItem* prev)
+{
+    if (current) {
+        // clear current selection
+        QList<QGraphicsItem*>  sitems = hitsTimeline->scene()->selectedItems();
+        for(int j=0; j<sitems.count(); j++) {
+            HitItem* tmp = dynamic_cast<HitItem*>(sitems[j]);
+            if (tmp) {
+                tmp->setZValue(tmp->timestamp().toTime_t());
+                tmp->setSelected(false);
+            }
+        }
+
+
+        QPointF center (QDateTime::fromString(current->text(0), DATETIMEFORMAT).toTime_t() / 60.0, 0);
+        unsigned int duration = current->text(3).toUInt();
+        QList<QGraphicsItem*>  items = hitsTimeline->scene()->items();
+        qDebug() << "FOUND " << items.count() << " at " << center;
+        for(int i=0; i<items.count(); i++) {
+            HitItem* hitem = dynamic_cast<HitItem*>(items[i]);
+            if (hitem && hitem->timestamp() == QDateTime::fromString(current->text(0), DATETIMEFORMAT) && hitem->task()->title == current->text(1) && hitem->subtask() == current->text(2) && hitem->duration() == duration) {
+                hitem->setZValue(1e20);
+                hitem->setSelected(true);
+                break;
+            }
+        }
+        hitsTimeline->centerOn(center);
+    }
+}
+
+void Sak::hitsSelectedInTimeline(HitItem* hitem)
+{
+    const Task* t = hitem->task();
+    QList<QTreeWidgetItem *> items = hitsList->findItems(hitem->timestamp().toString(DATETIMEFORMAT), Qt::MatchExactly, 0);
+    QString tmp(QString ("%1").arg(hitem->duration()));
+    foreach(QTreeWidgetItem* item, items) {
+        if (item->text(1) == t->title && item->text(2) == hitem->subtask() && item->text(3) == tmp) {
+            hitsList->clearSelection();
+            item->setSelected(true);
+            hitsList->scrollToItem(item);
+        }
+    }
+}
+
+
 
 void Sak::populateHitsList(const QList<HitElement>& hits, QTreeWidget* theHitsList )
 {
@@ -437,6 +482,26 @@ void Sak::populateHitsList(const QList<HitElement>& hits, QTreeWidget* theHitsLi
         }
         theHitsList->addTopLevelItems(widgets);
     }
+
+    populateHitsTimeline(hits, hitsTimeline);
+}
+
+void  Sak::populateHitsTimeline(const QList<HitElement>& hits, Timeline* timeline )
+{
+    QGraphicsScene* scene = timeline->scene();
+    if (scene) {
+        QList<QGraphicsItem*> items = scene->items();
+        foreach(QGraphicsItem* item, items) {
+            if (dynamic_cast<HitItem*>(item)) {
+                scene->removeItem(item);
+                delete item;
+            }
+        }
+        foreach(HitElement e, hits) {
+            HitItem* item = new HitItem(e.task, e.timestamp, e.duration, e.subtask);
+            scene->addItem(item);
+        }
+    }
 }
 
 
@@ -479,7 +544,6 @@ void Sak::interactiveMergeHits()
         tmpHits.insertMulti(okHits[i].timestamp, okHits[i]);
     }
 
-    qDebug() << "hits: " << hits.count();
     if (!hits.count()) return;
     else hits.unite(tmpHits);
 

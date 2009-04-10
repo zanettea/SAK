@@ -17,7 +17,8 @@ HEADERS += sak.h \
     backupper.h \
     piechart.h \
     task.h \
-    saksubwidget.h
+    saksubwidget.h \
+    timeline.h
 SOURCES += main.cpp \
     sak.cpp \
     sakhits.cpp \
@@ -26,7 +27,8 @@ SOURCES += main.cpp \
     pixmapviewer.cpp \
     task.cpp \
     saksubwidget.cpp \
-    backupper.cpp
+    backupper.cpp \
+    timeline.cpp
 win32:
 unix { 
     contains(CONFIG, argb):DEFINES += ARGB

@@ -213,6 +213,7 @@ void Sak::init()
     m_currentInterval = qMax((unsigned int)1, qMin((unsigned int)1440, m_currentInterval));
     qDebug() << "SAK: pinging interval " <<  m_currentInterval << Task::hours(m_currentInterval) << " hours ";
 
+    hitsTimeline->setPeriod(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate()));
     populateHitsList(createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
 }
 
@@ -1283,7 +1284,7 @@ void Sak::focusedSubTask()
 void Sak::setupSettingsWidget()
 {
     m_settings = new QMainWindow();
-    m_settings->setMinimumHeight(500);
+    m_settings->setMinimumHeight(650);
     m_settings->setMinimumWidth(700);
     QWidget* centralWidget = new QWidget;
     m_settings->setCentralWidget(centralWidget);
@@ -1441,6 +1442,9 @@ void Sak::setupSettingsWidget()
     QVBoxLayout* tab3MainLayout = new QVBoxLayout(tab3);
     //taskSelector = new QComboBox;
     hitsList = newHitsList();
+    connect(hitsList, SIGNAL(currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)), this, SLOT(hitsSelectedInList(QTreeWidgetItem*,QTreeWidgetItem*)));
+    hitsTimeline = new Timeline;
+    connect(hitsTimeline, SIGNAL(hitSelected(HitItem*)), this, SLOT(hitsSelectedInTimeline(HitItem*)));
     cal1 = new QCalendarWidget;
     cal1->setMinimumSize(QSize(250,200));
     cal2 = new QCalendarWidget;
@@ -1454,6 +1458,7 @@ void Sak::setupSettingsWidget()
     calsLayout->addWidget(cal2);
     cal2->setSelectedDate(QDate::currentDate().addDays(1));
     tab3MainLayout->addWidget(hitsList);
+    tab3MainLayout->addWidget(hitsTimeline);
     tab3MainLayout->addLayout(calsLayout);
 
 

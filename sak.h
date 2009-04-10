@@ -22,6 +22,7 @@
 #include "saksubwidget.h"
 #include "sakmessageitem.h"
 #include "pixmapviewer.h"
+#include "timeline.h"
 #include "task.h"
 
 
@@ -70,7 +71,10 @@ protected slots:
     void selectedStartDate(const QDate& date);
     void selectedEndDate(const QDate& date);
     void hitsListItemChanged(QTreeWidgetItem*, int column);
+    void hitsSelectedInList(QTreeWidgetItem*, QTreeWidgetItem*);
+    void hitsSelectedInTimeline(HitItem*);
     void populateHitsList(const QList<HitElement>&, QTreeWidget* t = 0);
+    void populateHitsTimeline(const QList<HitElement>&, Timeline* t = 0);
     void addDefaultHit();
     void interactiveMergeHits();
 private:
@@ -134,6 +138,7 @@ private:
     QTreeWidget* tasksTree;
     QComboBox* taskSelector;
     QTreeWidget* hitsList, *summaryList;
+    Timeline* hitsTimeline;
     QCalendarWidget* cal1, *cal2, *cal3, *cal4;
     PixmapViewer* taskPixmapViewer;
     QTextEdit* taskTextEditor;
