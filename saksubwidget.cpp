@@ -6,14 +6,15 @@ SakSubWidget::SakSubWidget(const Task& task, Task::SubTask subtask, bool editabl
 {
 
     m_editable = editable;
-    m_palette.setColor(QPalette::Inactive, QPalette::Window, Qt::black);
-    m_palette.setColor(QPalette::Active, QPalette::Window, Qt::black);
 
-    m_palette.setColor(QPalette::Inactive, QPalette::Button, m_subtask.bgColor);
-    m_palette.setColor(QPalette::Active, QPalette::Button, m_subtask.fgColor);
+    QColor bgColor = subtask.bgColor.isValid() ? subtask.bgColor : task.bgColor;
+    QColor fgColor = subtask.fgColor.isValid() ? subtask.fgColor : task.fgColor;
 
-    m_palette.setColor(QPalette::Inactive, QPalette::ButtonText, m_subtask.fgColor);
-    m_palette.setColor(QPalette::Active, QPalette::ButtonText, m_subtask.bgColor);
+    m_palette.setColor(QPalette::Inactive, QPalette::Button, bgColor);
+    m_palette.setColor(QPalette::Active, QPalette::Button, fgColor);
+
+    m_palette.setColor(QPalette::Inactive, QPalette::ButtonText, fgColor);
+    m_palette.setColor(QPalette::Active, QPalette::ButtonText, bgColor);
 
     m_showingDetails=false;
 
@@ -23,7 +24,7 @@ SakSubWidget::SakSubWidget(const Task& task, Task::SubTask subtask, bool editabl
         ((QLineEdit*)b)->setAlignment(Qt::AlignCenter);
     }
     setWidget(b);
-    setPalette(m_palette);
+    b->setPalette(m_palette);
 
     QFont f(font());
     f.setBold(true);

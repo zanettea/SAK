@@ -31,8 +31,10 @@ QXmlStreamWriter & operator<< ( QXmlStreamWriter & out, const Task & task )
         QHash< QString, Task::SubTask >::const_iterator sitr = task.subTasks.find(itr.key());
         if (sitr != task.subTasks.end()) {
             const Task::SubTask& st(sitr.value());
-            out.writeAttribute("bgcolor", st.bgColor.name());
-            out.writeAttribute("fgcolor", st.fgColor.name());
+            if (st.bgColor.isValid())
+                out.writeAttribute("bgcolor", st.bgColor.name());
+            if (st.fgColor.isValid())
+                out.writeAttribute("fgcolor", st.fgColor.name());
             out.writeAttribute("active", QString("%1").arg(st.active));
             out.writeStartElement("Description");
             out.writeCharacters(st.description);

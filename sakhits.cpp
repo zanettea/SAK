@@ -210,7 +210,6 @@ void Sak::exportHits()
         QTreeWidgetItem* w = hitsList->topLevelItem ( i );
         QString name(w->text(1));
         QDateTime timestamp(QDateTime::fromString(w->text(0), DATETIMEFORMAT));
-        unsigned int duration = w->text(3).toInt();
         QHash<QString, Task>::iterator titr = m_tasks.find(name);
         stream << w->text(1) << ";" << w->text(0)  << ";" << w->text(2) << ";" << w->text(3) << ";\n";
     }
@@ -373,7 +372,7 @@ void Sak::hitsListItemChanged(QTreeWidgetItem* i, int column)
     hitsList->blockSignals(false);
 }
 
-void Sak::hitsSelectedInList(QTreeWidgetItem* current, QTreeWidgetItem* prev)
+void Sak::hitsSelectedInList(QTreeWidgetItem* current, QTreeWidgetItem* /*prev*/)
 {
     if (current) {
         // clear current selection

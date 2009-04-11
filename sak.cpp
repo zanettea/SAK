@@ -33,38 +33,20 @@ static int CurrentRevertToReturn;
 #endif
 
 
-
-class MyGL : public QGLWidget
-{
-    public:
-        MyGL() {}
-    protected:
-        virtual void updateGL () {QTime t; t.start(); QGLWidget::updateGL(); qDebug() << "updatedGL in " << t.elapsed(); }
-        virtual void updateOverlayGL () {QTime t; t.start(); QGLWidget::updateOverlayGL(); qDebug() << "updatedOverlayGL in " << t.elapsed(); }
-        virtual void glDraw () {QTime t; t.start(); QGLWidget::glDraw(); qDebug() << "glDrawGL in " << t.elapsed(); }
-        virtual void glInit () {QTime t; t.start(); QGLWidget::glInit(); qDebug() << "glinit in " << t.elapsed(); }
-        virtual void initializeGL () {QTime t; t.start(); QGLWidget::initializeGL(); qDebug() << "initializeGL in " << t.elapsed(); }
-        virtual void initializeOverlayGL () {QTime t; t.start(); QGLWidget::initializeOverlayGL(); qDebug() << "initializeOverlayGL in " << t.elapsed(); }
-        virtual void paintEvent ( QPaintEvent * event ) {QTime t; t.start(); QGLWidget::paintEvent(event); qDebug() << "paintevnt in " << t.elapsed(); }
-        virtual void paintGL () {QTime t; t.start(); QGLWidget::paintGL(); qDebug() << "paintGL in " << t.elapsed(); }
-        virtual void paintOverlayGL () {QTime t; t.start(); QGLWidget::paintOverlayGL(); qDebug() << "paintOverlayGL in " << t.elapsed(); }
-        virtual void resizeEvent ( QResizeEvent * event ) {QTime t; t.start(); QGLWidget::resizeEvent(event); qDebug() << "resizeevent in " << t.elapsed(); }
-        virtual void resizeGL ( int width, int height ) {QTime t; t.start(); QGLWidget::resizeGL(width, height); qDebug() << "resizeGL in " << t.elapsed(); }
-        virtual void resizeOverlayGL ( int width, int height ) {QTime t; t.start(); QGLWidget::resizeOverlayGL(width, height); qDebug() << "resizeoverlyGL in " << t.elapsed(); }
-};
-
 class GView : public QGraphicsView
 {
     public:
-        GView() { 
-            if (QGLFormat::hasOpenGL()) {
-                qDebug() << "Using OpenGL";
-                setViewport(new QGLWidget);
-            }
-        }
-        ~GView() {
-            delete this->viewport();
-        }
+//        GView()  {
+//            if (QGLFormat::hasOpenGL()) {
+//                qDebug() << "Using OpenGL";
+//                QGLWidget* w = new QGLWidget;
+//                w->setAttribute(Qt::WA_TranslucentBackground, true);
+//                setViewport(w);
+//            }
+//        }
+//        ~GView() {
+//            delete this->viewport();
+//        }
         void drawBackground(QPainter* p, const QRectF & rect) {
             QBrush brush(QColor(0,0,0,200));
             p->setCompositionMode(QPainter::CompositionMode_Source);
@@ -206,6 +188,8 @@ void Sak::init()
     m_view->setWindowFlags(m_view->windowFlags() | Qt::WindowStaysOnTopHint | Qt::ToolTip );
     //m_view->setWindowModality(Qt::ApplicationModal);
     m_view->setAttribute(Qt::WA_QuitOnClose, false);
+    // enable transparency with Qt4.5
+    m_view->setAttribute(Qt::WA_TranslucentBackground, true);
     m_view->setWindowIcon( QIcon(":/images/icon.png") );
     m_view->setWindowTitle("SaK - Sistema Anti Kazzeggio");
 

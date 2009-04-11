@@ -30,7 +30,7 @@ HitItem::HitItem(const Task* t, const QDateTime& timestamp, unsigned int duratio
     m_bgbrush.setColor(d);
     setVisible(true);
     setZValue(timestamp.toTime_t());
-    //setFlag(QGraphicsItem::ItemIsSelectable, true);
+    setFlag(QGraphicsItem::ItemIsSelectable, true);
     setFlag(QGraphicsItem::ItemIsFocusable, true);
     setAcceptsHoverEvents(true);
     setToolTip( timestamp.toString(DATETIMEFORMAT) + "\n" + subtask + " @ " + t->title + "\n" + QString("%1").arg(duration) +  " minutes long");
@@ -116,6 +116,18 @@ Timeline::~Timeline()
 }
 
 
+void Timeline::keyPressEvent(QKeyEvent* e)
+{
+    if (e->key() == Qt::Key_Up && matrix().m11()<20)
+        scale(1.0 + 0.1, 1.0);
+    else if (e->key() == Qt::Key_Down)
+        scale(1.0 - 0.1, 1.0);
+
+
+    QGraphicsView::keyPressEvent(e);
+}
+
+
 void Timeline::wheelEvent(QWheelEvent* e)
 {
     if (matrix().m11()<20 || e->delta() < 0)
@@ -163,7 +175,7 @@ void Timeline::mouseMoveEvent(QMouseEvent* e)
 
         m_cursorText->setVisible(true);
         m_cursorText->setZValue(1e21);
-        m_cursorText->setPos(1,-5);
+        m_cursorText->setPos(1,-10);
         m_cursorText->setDefaultTextColor(Qt::red);
 
         m_cursorText->setAcceptHoverEvents(false);

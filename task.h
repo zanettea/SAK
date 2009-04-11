@@ -13,7 +13,7 @@ struct Task
 {
     struct SubTask
     {
-        SubTask(const QString& t=QString()) : title(t), bgColor(200,200,200), fgColor(0,0,0), active(true) {}
+        SubTask(const QString& t=QString()) : title(t), active(true) {}
         QString title, description;
         QColor bgColor, fgColor;
         bool active;

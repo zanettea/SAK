@@ -45,6 +45,7 @@ signals:
 private slots:
     void selectionChanged();
 protected:
+    void keyPressEvent(QKeyEvent* e);
     void wheelEvent(QWheelEvent* e);
     void mousePressEvent(QMouseEvent* e);
     void mouseReleaseEvent(QMouseEvent* e);
