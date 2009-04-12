@@ -67,7 +67,7 @@ protected slots:
     void trayIconActivated(QSystemTrayIcon::ActivationReason);
     // create a list of hits merging tasks
     QList<HitElement> createHitsList(const QDateTime& from = QDateTime(), const QDateTime& to = QDateTime());
-    QMap<double, Task*> createSummaryList(const QList<HitElement>& hits);
+    QMap<double, QPair<Task*, QString> > createSummaryList(const QList<HitElement>& hits);
     void selectedStartDate(const QDate& date);
     void selectedEndDate(const QDate& date);
     void hitsListItemChanged(QTreeWidgetItem*, int column);
@@ -103,7 +103,7 @@ private:
     QMenu* m_addHitMenu;
     QAction* m_addHitAction;
     QAction* m_exportDataAction;
-    QString currentTask;
+    QString currentTask, currentSubtask;
     class GView* m_view;
     class Backupper* m_backupper;
     class Incremental* m_incremental;
@@ -143,6 +143,8 @@ private:
     PixmapViewer* taskPixmapViewer;
     QTextEdit* taskTextEditor;
     QLineEdit* taskTitleEditor;
+    QSpinBox* estimatedHoursEditor;
+    QDateEdit* dueEditor;
 
     QAction *minimizeAction;
     QAction *maximizeAction;

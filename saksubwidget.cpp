@@ -74,11 +74,10 @@ void SakSubWidget::keyPressEvent ( QKeyEvent * event ) {
 
 void SakSubWidget::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* e)
 {
-    if (!m_editable) {
-        QString text = ((QLineEdit*)widget())->text();
-        text = text == message ? "" : text;
-        emit clicked(m_task.title, !m_editable ? m_subtask.title : ((QLineEdit*)widget())->text());
-    }
+    QString text;
+    text = m_editable ? ((QLineEdit*)widget())->text() : ((QPushButton*)widget())->text();
+    text = text == message ? "" : text;
+    emit clicked(m_task.title, !m_editable ? m_subtask.title : ((QLineEdit*)widget())->text());
     QGraphicsProxyWidget::mouseDoubleClickEvent(e);
 }
 

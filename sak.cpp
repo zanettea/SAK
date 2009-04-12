@@ -142,15 +142,6 @@ void Sak::init()
 
     m_editedTasks = m_tasks;
 
-    // check consistency
-    QHash<QString, Task>::iterator itr = m_tasks.begin();
-    while(itr != m_tasks.end()) {
-        if ( !(*itr).checkConsistency() ) {
-            QMessageBox::warning(0, "Task inconsistency!", QString("The task %1 has incosistents records (maybe recorded with different clocks). The routine to recover a valid database in under development. Please contact the author zanettea at gmail dot com").arg((*itr).title));
-        }
-        itr++;
-    }
-
     setupSettingsWidget();
 
     m_settings->installEventFilter(this);
@@ -303,6 +294,7 @@ void Sak::flush()
     QDir saveDir(QFileInfo(settings.fileName()).dir());
     saveDir.mkdir("SakTasks");
     saveDir.cd("SakTasks");
+
     foreach(Task t, m_tasks) {
         if (t.title.isEmpty()) continue;
         QFile xmlTaskSave(saveDir.filePath(t.title + ".xml"));
@@ -323,6 +315,19 @@ void Sak::flush()
         xmlTaskSave.write(taskArray);
         xmlTaskSave.close();
     }
+
+    // remove files not matching a task
+    QStringList nameFilters;
+    nameFilters << "*.xml";
+    QStringList files = saveDir.entryList( nameFilters, QDir::Files);
+    foreach (QString taskXmlFileName, files) {
+        if (!m_tasks.contains(QFileInfo(taskXmlFileName).baseName())) {
+            qWarning()<< "Remove task " << QFileInfo(taskXmlFileName).baseName() << " from disk";
+            QFile(saveDir.filePath(taskXmlFileName)).remove();
+        }
+    }
+
+
     m_incremental->clearAddedPieces();
 }
 
@@ -568,7 +573,12 @@ void Sak::addDefaultTask()
 void Sak::populateTasks()
 {
     tasksTree->clear();
-    foreach(const Task& t, m_tasks.values()) {
+
+    QHash<QString, Task>::iterator itr = m_tasks.begin(), end=m_tasks.end();
+    for(; itr!=end; itr++) {
+        Task& t(itr.value());
+        t.checkConsistency();
+
         if (t.title.isEmpty() || t.title == "<away>") continue; // skip away task
         QTreeWidgetItem* item = new QTreeWidgetItem(QStringList(t.title));
         item->setData(0, Qt::UserRole, QVariant(QMetaType::VoidStar, &t));
@@ -576,16 +586,29 @@ void Sak::populateTasks()
         icon.addPixmap(t.icon);
         item->setSizeHint(0, QSize(32,32));
         item->setIcon(0, icon);
-        item->setForeground(0,t.fgColor);
-        item->setBackground(0,t.bgColor);
+        for(int i=0; i<3; i++) {
+            item->setForeground(i,t.fgColor);
+            item->setBackground(i,t.bgColor);
+        }
         //item->setCheckState(1, t.active ? Qt::Checked : Qt::Unchecked);
         //item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
         item->setIcon(1,QIcon(t.active ? ":/images/active.png" : ":/images/inactive.png"));
-        item->setForeground(1,t.fgColor);
-        item->setBackground(1,t.bgColor);
-        item->setForeground(2,t.fgColor);
-        item->setBackground(2,t.bgColor);
-        item->setText(2,QString("%1 hours worked till now (overestimated %2)").arg(t.totHours).arg(t.totOverestimation));
+        item->setText(2,QString("%1 hours worked till now (overestimated %2)").arg(t.totHours, 4, 'f', 2, ' ').arg(t.totOverestimation));
+        foreach(Task::SubTask st, t.subTasks) {
+            if (!st.title.isEmpty()) {
+                QTreeWidgetItem* sitem = new QTreeWidgetItem(item, QStringList(st.title));
+                item->setData(0, Qt::UserRole, QVariant(QMetaType::VoidStar, &st));
+                sitem->setSizeHint(0, QSize(32,32));
+                QColor fgColor = st.fgColor.isValid() ? st.fgColor : t.fgColor;
+                QColor bgColor = st.bgColor.isValid() ? st.bgColor : t.bgColor;
+                for(int i=0; i<3; i++) {
+                    sitem->setForeground(i,fgColor);
+                    sitem->setBackground(i,bgColor);
+                }
+                sitem->setIcon(1,QIcon(st.active ? ":/images/active.png" : ":/images/inactive.png"));
+                sitem->setText(2,QString("%1 hours worked till now").arg(st.totHours,4,'f',2,' '));
+            }
+        }
         tasksTree->addTopLevelItem(item);
     }
 }
@@ -644,36 +667,67 @@ bool Sak::settingsEventFilter(QEvent* e)
 
 void Sak::commitCurrentTask()
 {
-    QString currentTitle = taskTitleEditor->text();
-    // backup data
-    if (!currentTitle.isEmpty()) {
-        if (currentTitle != currentTask && m_tasks.contains(currentTitle)) {
-            QMessageBox::warning(0, "Conflitto nei nomi dei tasks", "Conflitto nei nomi dei tasks");
-            taskTitleEditor->setText(currentTitle);
-            return;
-        } else if (m_tasks.contains(currentTask)) {
-            m_tasks[currentTitle] = m_tasks.take(currentTask);
-            m_tasks[currentTitle].title = currentTitle;
+    if (currentSubtask.isEmpty()) {
+        QString currentTitle = taskTitleEditor->text();
+        // backup data
+        if (!currentTitle.isEmpty()) {
+            if (currentTitle != currentTask && m_tasks.contains(currentTitle)) {
+                QMessageBox::warning(0, "Conflict in task names", "Conflict in task names");
+                taskTitleEditor->setText(currentTitle);
+                return;
+            } else if (m_tasks.contains(currentTask)) {
+                m_tasks[currentTitle] = m_tasks.take(currentTask);
+                m_tasks[currentTitle].title = currentTitle;
+            } else return;
         } else return;
-    } else return;
 
-    Task& t = m_tasks[currentTitle];
-    t.bgColor = bgColorButton->palette().color(QPalette::Button);
-    t.fgColor = fgColorButton->palette().color(QPalette::ButtonText);
-    QList<QTreeWidgetItem *> items =  tasksTree->findItems(currentTask,Qt::MatchExactly,0);
-    foreach(QTreeWidgetItem* ii, items) {
-        ii->setText(0, currentTitle);
-        ii->setIcon(0, taskPixmapViewer->pixmap());
-        for (int i=0; i<3; i++) {
-            ii->setForeground(i, QColor(t.fgColor));
-            ii->setBackground(i, QColor(t.bgColor));
+        Task& t = m_tasks[currentTitle];
+        t.bgColor = bgColorButton->palette().color(QPalette::Button);
+        t.fgColor = fgColorButton->palette().color(QPalette::ButtonText);
+        QList<QTreeWidgetItem *> items =  tasksTree->findItems(currentTask,Qt::MatchExactly,0);
+        foreach(QTreeWidgetItem* ii, items) {
+            ii->setText(0, currentTitle);
+            ii->setIcon(0, taskPixmapViewer->pixmap());
+            for (int i=0; i<3; i++) {
+                ii->setForeground(i, QColor(t.fgColor));
+                ii->setBackground(i, QColor(t.bgColor));
+            }
         }
-    }
-    currentTitle = taskTitleEditor->text();
-    if (m_tasks.contains(currentTitle)) {
-        Task& bt = m_tasks[taskTitleEditor->text()];
-        bt.icon = taskPixmapViewer->pixmap();
-        bt.description = taskTextEditor->document()->toPlainText();
+        if (dueEditor->date() != dueEditor->minimumDate())
+            t.dueDate = dueEditor->date();
+        t.estimatedHours = estimatedHoursEditor->value();
+    } else { // subtask edited
+        if (!m_tasks.contains(currentTask)) return;
+        Task& t(m_tasks[currentTask]);
+        QString currentTitle = taskTitleEditor->text();
+        // backup data
+        if (!currentTitle.isEmpty()) {
+            if (currentTitle != currentSubtask && t.subTasks.contains(currentTitle)) {
+                QMessageBox::warning(0, "Conflict in subtask names", "Conflict in subtask names");
+                taskTitleEditor->setText(currentTitle);
+                return;
+            } else if (t.subTasks.contains(currentSubtask)) {
+                t.subTasks[currentTitle] = t.subTasks.take(currentSubtask);
+                t.subTasks[currentTitle].title = currentTitle;
+                t.hits[currentTitle] = t.hits.take(currentSubtask);
+            } else return;
+        } else return;
+
+        Task::SubTask& st = t.subTasks[currentTitle];
+        st.bgColor = bgColorButton->palette().color(QPalette::Button);
+        st.fgColor = fgColorButton->palette().color(QPalette::ButtonText);
+        QList<QTreeWidgetItem *> items =  tasksTree->findItems(currentTask,Qt::MatchExactly,0);
+        foreach(QTreeWidgetItem* jj, items) {
+            for(int i=0; i<jj->childCount(); i++) {
+                QTreeWidgetItem* ii = jj->child(i);
+                if (ii->text(0) != currentSubtask) continue;
+                ii->setText(0, currentTitle);
+                for (int i=0; i<3; i++) {
+                    ii->setForeground(i, QColor(st.fgColor));
+                    ii->setBackground(i, QColor(st.bgColor));
+                }
+            }
+        }
     }
 }
 
@@ -681,42 +735,87 @@ void Sak::selectedTask()
 {
     if (tasksTree->selectedItems().isEmpty()) {
         taskPixmapViewer->setEnabled(false);
+        taskPixmapViewer->setPixmap(QPixmap());
         taskTextEditor->setEnabled(false);
         taskTitleEditor->setEnabled(false);
         bgColorButton->setEnabled(false);
         fgColorButton->setEnabled(false);
+        dueEditor->setEnabled(false);
+        estimatedHoursEditor->setEnabled(false);
         return;
     }
     commitCurrentTask();
-    taskPixmapViewer->setEnabled(true);
+
+    QTreeWidgetItem* selectedItem = tasksTree->selectedItems().first();
+    QTreeWidgetItem* parentItem = selectedItem->parent();
+    QString tt = selectedItem->text(0);
+
+    if (!parentItem) {
+        taskPixmapViewer->setEnabled(true);
+        dueEditor->setEnabled(true);
+        estimatedHoursEditor->setEnabled(true);
+    } else {
+        taskPixmapViewer->setEnabled(false);
+        taskPixmapViewer->setPixmap(QPixmap());
+        dueEditor->setEnabled(false);
+        estimatedHoursEditor->setEnabled(false);
+    }
     taskTextEditor->setEnabled(true);
     taskTitleEditor->setEnabled(true);
     bgColorButton->setEnabled(true);
     fgColorButton->setEnabled(true);
 
-    QString tt = tasksTree->selectedItems().first()->text(0);
-    if (!m_tasks.contains(tt)) return;
-    const Task& t = m_tasks[tt];
-    taskPixmapViewer->setPixmap(t.icon);
-    taskTextEditor->setPlainText(t.description);
-    taskTitleEditor->setText(t.title);
-    QPalette p;
-    p.setColor(QPalette::Button, t.bgColor);
-    p.setColor(QPalette::ButtonText, t.fgColor);
-    bgColorButton->setPalette(p);
-    fgColorButton->setPalette(p);
 
-    currentTask = t.title;
+    if (!parentItem) { // editing a task
+        if (!m_tasks.contains(tt)) return;
+        const Task& t = m_tasks[tt];
+        taskPixmapViewer->setPixmap(t.icon);
+        taskTextEditor->setPlainText(t.description);
+        taskTitleEditor->setText(t.title);
+        QPalette p;
+        p.setColor(QPalette::Button, t.bgColor);
+        p.setColor(QPalette::ButtonText, t.fgColor);
+        bgColorButton->setPalette(p);
+        fgColorButton->setPalette(p);
+        estimatedHoursEditor->setValue(t.estimatedHours);
+        dueEditor->setDate(t.dueDate.isValid() ? t.dueDate : dueEditor->minimumDate());
+
+        currentTask = t.title;
+        currentSubtask = "";
+    } else {
+        if (!m_tasks.contains(parentItem->text(0))) return;
+        const Task& t = m_tasks[parentItem->text(0)];
+        if (!t.subTasks.contains(tt)) return;
+        const Task::SubTask& st = t.subTasks[tt];
+        taskTextEditor->setPlainText(st.description);
+        taskTitleEditor->setText(st.title);
+        QPalette p;
+        p.setColor(QPalette::Button, st.bgColor.isValid() ? st.bgColor : t.bgColor);
+        p.setColor(QPalette::ButtonText, st.fgColor.isValid() ? st.fgColor : t.fgColor);
+        bgColorButton->setPalette(p);
+        fgColorButton->setPalette(p);
+
+        currentTask = t.title;
+        currentSubtask = st.title;
+    }
 }
 
 void Sak::doubleClickedTask(QTreeWidgetItem* i, int column)
 {
     if (column == 1) {
-        QHash<QString, Task>::iterator itr = m_tasks.find(i->text(0));
-        Q_ASSERT(itr != m_tasks.end());
-        bool& active ( itr.value().active );
-        active = !active;
-        i->setIcon(column, active ? QIcon(":/images/active.png") : QIcon(":/images/inactive.png"));
+        if (i->parent() == 0) {
+            QHash<QString, Task>::iterator itr = m_tasks.find(i->text(0));
+            Q_ASSERT(itr != m_tasks.end());
+            bool& active ( itr.value().active );
+            active = !active;
+            i->setIcon(column, active ? QIcon(":/images/active.png") : QIcon(":/images/inactive.png"));
+        } else {
+            QHash<QString, Task>::iterator itr = m_tasks.find(i->parent()->text(0));
+            Q_ASSERT(itr != m_tasks.end());
+            bool& active ( itr.value().subTasks[i->text(0)].active );
+            active = !active;
+            i->setIcon(column, active ? QIcon(":/images/active.png") : QIcon(":/images/inactive.png"));
+        }
         ((QTreeWidget*)sender())->update();
     }
 }
@@ -1104,7 +1203,7 @@ void Sak::popupSubtasks(const QString& taskname) {
     QHash< QString, Task::SubTask >::const_iterator titr = t.subTasks.begin(), tend = t.subTasks.end();
     m_subwidgets.clear();
     QDateTime now(QDateTime::currentDateTime());
-    while(titr != tend) {
+    for(; titr != tend; titr++) {
         if (!titr->active) continue;
         SakSubWidget* test = new SakSubWidget(t, *titr);
         test->setVisible(true);
@@ -1129,7 +1228,6 @@ void Sak::popupSubtasks(const QString& taskname) {
             }
         }
         m_subwidgets.insertMulti( - rank.toTime_t(), test);
-        titr++;
     }
 
     const QList<SakSubWidget*>& values = m_subwidgets.values();
@@ -1365,7 +1463,7 @@ void Sak::setupSettingsWidget()
 
     
     taskTextEditor = new QTextEdit;
-    taskTextEditor->setFixedHeight(130);
+    taskTextEditor->setFixedHeight(100);
     taskTextEditor->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     
     
@@ -1379,15 +1477,26 @@ void Sak::setupSettingsWidget()
     QVBoxLayout* editsLayout = new QVBoxLayout;
     detailsLayout->addWidget(taskPixmapViewer);
     editsLayout->addWidget(taskTitleEditor);
-    editsLayout->addWidget(taskTextEditor);
+    editsLayout->addWidget(taskTextEditor);    
+    QHBoxLayout* datesLayout = new QHBoxLayout;
+    datesLayout->addWidget(new QLabel("Due: "));
+    dueEditor = new QDateEdit;
+    dueEditor->setMinimumDate(QDate(2000,1,1));
+    datesLayout->addWidget(dueEditor);
+    datesLayout->addWidget(new QLabel("Estimated: "));
+    estimatedHoursEditor = new QSpinBox;
+    estimatedHoursEditor->setRange(0, 1e5);
+    estimatedHoursEditor->setSuffix("hours");
+    datesLayout->addWidget(estimatedHoursEditor);
+    editsLayout->addLayout(datesLayout);
     detailsLayout->addLayout(editsLayout);
     
     QVBoxLayout* colorsLayout = new QVBoxLayout;
-    bgColorButton = new QPushButton("bg color");
+    bgColorButton = new QPushButton("bg\ncolor");
     bgColorButton->setToolTip("Background color");
     bgColorButton->setSizePolicy(QSizePolicy(QSizePolicy::Preferred, QSizePolicy::MinimumExpanding));
 
-    fgColorButton = new QPushButton("fg color");
+    fgColorButton = new QPushButton("fg\ncolor");
     fgColorButton->setToolTip("Foreground color");
     fgColorButton->setSizePolicy(QSizePolicy(QSizePolicy::Preferred, QSizePolicy::MinimumExpanding));
 

@@ -188,7 +188,7 @@ void Timeline::mouseMoveEvent(QMouseEvent* e)
 
     double pos = mapToScene(e->pos()).x();
     m_cursorLine->setPos(QPointF(pos, 0));
-    m_cursorText->setPlainText(QDateTime::fromTime_t(pos*60.0).toString(DATETIMEFORMAT));
+    m_cursorText->setPlainText(QDateTime::fromTime_t(pos*60.0).toString("hh:mm dd/MM/yy"));
 
     if (e->buttons() & Qt::LeftButton)
         m_moving=true;

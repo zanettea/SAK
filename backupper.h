@@ -11,7 +11,7 @@ const char BACKUPDATEFORMAT [] = "ddMMyyyyhhmmss";
 class Backupper
 {
 public:
-    static const int m_nCyclicBackups = 10;
+    static const int m_nCyclicBackups = 50;
     static const char  m_format [14];
     QMap<QString, QMap<QDateTime, QString> > m_cyclicBackups;
     QDir m_dir;

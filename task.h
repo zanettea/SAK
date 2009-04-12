@@ -16,7 +16,8 @@ struct Task
         SubTask(const QString& t=QString()) : title(t), active(true) {}
         QString title, description;
         QColor bgColor, fgColor;
-        bool active;
+        double totHours;
+       bool active;
     };
 
     struct Hit
@@ -28,8 +29,10 @@ struct Task
         unsigned int duration;
     };
 
-    Task() : bgColor(Qt::white), fgColor(Qt::black), active(true), totHours(0) {}
+    Task() : estimatedHours(0), bgColor(Qt::white), fgColor(Qt::black), active(true), totHours(0) {}
     QString title, description;
+    QDate dueDate;
+    int estimatedHours;
     QPixmap icon;
     QColor bgColor, fgColor;
     QHash< QString, SubTask > subTasks;

@@ -238,14 +238,14 @@ QList<HitElement> Sak::createHitsList(const QDateTime& from , const QDateTime& t
 }
 
 
-QMap<double,Task*> Sak::createSummaryList(const QList<HitElement>& hits)
+QMap<double,QPair<Task*, QString> > Sak::createSummaryList(const QList<HitElement>& hits)
 {
-    QHash<Task*, double> summaryMap;
+    QHash<QPair<Task*, QString>, double> summaryMap;
     foreach(const HitElement& hit, hits) {
-        summaryMap[hit.task] += Task::hours(hit.duration);
+        summaryMap[QPair<Task*, QString>(hit.task, hit.subtask)] += Task::hours(hit.duration);
     }
-    QMap<double, Task*> summaryOrderedMap;
-    QHash<Task*, double>::const_iterator itr = summaryMap.begin();
+    QMap<double, QPair<Task*, QString> > summaryOrderedMap;
+    QHash<QPair<Task*, QString>, double>::const_iterator itr = summaryMap.begin();
     while(itr != summaryMap.end()) {
        summaryOrderedMap.insertMulti(itr.value(), itr.key());
        itr++;
@@ -263,6 +263,7 @@ void Sak::saveHitChanges()
         }
         m_changedHit=false;
         populateHitsList(createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
+        populateTasks();
     }
 }
 
@@ -389,7 +390,6 @@ void Sak::hitsSelectedInList(QTreeWidgetItem* current, QTreeWidgetItem* /*prev*/
         QPointF center (QDateTime::fromString(current->text(0), DATETIMEFORMAT).toTime_t() / 60.0, 0);
         unsigned int duration = current->text(3).toUInt();
         QList<QGraphicsItem*>  items = hitsTimeline->scene()->items();
-        qDebug() << "FOUND " << items.count() << " at " << center;
         for(int i=0; i<items.count(); i++) {
             HitItem* hitem = dynamic_cast<HitItem*>(items[i]);
             if (hitem && hitem->timestamp() == QDateTime::fromString(current->text(0), DATETIMEFORMAT) && hitem->task()->title == current->text(1) && hitem->subtask() == current->text(2) && hitem->duration() == duration) {
@@ -468,18 +468,28 @@ void Sak::populateHitsList(const QList<HitElement>& hits, QTreeWidget* theHitsLi
     if (summaryList) {
         theHitsList = summaryList;
         theHitsList->clear();
-        const QMap<double, Task*>& map(createSummaryList(hits));
-        QMap<double,Task*>::const_iterator itr = map.begin();
-        while(itr != map.end()) {
-            QTreeWidgetItem* w = new QTreeWidgetItem(QTreeWidgetItem::UserType);
-            w->setText(0, itr.value()->title);
-            w->setIcon(0, itr.value()->icon);
-            w->setText(1, QString("%1").arg(itr.key(), 4, 'f', 1, ' '));
-            //w->setFlags(w->flags() & (!Qt::ItemIsEditable));
-            widgets<< w;
-            itr++;
+        const QMap<double, QPair<Task*, QString> >& map(createSummaryList(hits));
+        QMap<double, QPair<Task*, QString> >::const_iterator itr = map.begin();
+        QHash<Task*, QTreeWidgetItem*> topLevels;
+        for(; itr != map.end(); itr++) { // first be sure to insert top levels
+            QTreeWidgetItem* topLevel;
+            if (!topLevels.contains(itr.value().first)) {
+                QTreeWidgetItem* w = new QTreeWidgetItem(QTreeWidgetItem::UserType);
+                w->setText(0, itr.value().first->title);
+                w->setIcon(0, itr.value().first->icon);
+                topLevels[itr.value().first] = w;
+            }
+            topLevel = topLevels[itr.value().first];
+            topLevel->setText(1, QString("%1").arg(topLevel->text(1).toInt() + itr.key(), 4, 'f', 2, ' '));
+            if (!itr.value().second.isEmpty()) {
+                QTreeWidgetItem* w = new QTreeWidgetItem(QTreeWidgetItem::UserType);
+                w->setText(0, itr.value().second);
+                w->setText(1, QString("%1").arg(itr.key(), 4, 'f', 2, ' '));
+                topLevel->addChild(w);
+
+            }
         }
-        theHitsList->addTopLevelItems(widgets);
+        theHitsList->addTopLevelItems(topLevels.values());
     }
 
     populateHitsTimeline(hits, hitsTimeline);

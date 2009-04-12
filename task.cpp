@@ -7,9 +7,12 @@ QXmlStreamWriter & operator<< ( QXmlStreamWriter & out, const Task & task )
     out.writeStartElement("Task");
 
     out.writeAttribute("title", task.title);
+    out.writeAttribute("active", QString("%1").arg(task.active));
+    if (task.dueDate.isValid())
+        out.writeAttribute("due", task.dueDate.toString("dd/MM/yyyy"));
+    out.writeAttribute("estimated", QString("%1").arg(task.estimatedHours));
     out.writeAttribute("bgcolor", task.bgColor.name());
     out.writeAttribute("fgcolor", task.fgColor.name());
-    out.writeAttribute("active", QString("%1").arg(task.active));
 
     out.writeStartElement("Description");
     out.writeCharacters(task.description);
@@ -162,12 +165,18 @@ QXmlStreamReader & operator>> ( QXmlStreamReader & in, Task & task )
         QStringRef bgColor = attrs.value("bgcolor");
         QStringRef fgColor = attrs.value("fgcolor");
         QStringRef active = attrs.value("active");
+        QStringRef due = attrs.value("due");
+        QStringRef estimated = attrs.value("estimated");
         if (!bgColor.isEmpty())
             task.bgColor = QColor(bgColor.toString());
         if (!fgColor.isEmpty())
             task.fgColor = QColor(fgColor.toString());
         if (!active.isEmpty())
             task.active = active.toString().toUInt();
+        if (!estimated.isEmpty())
+            task.estimatedHours = estimated.toString().toUInt();
+        if (!due.isEmpty())
+            task.dueDate = QDate::fromString(due.toString(), "dd/MM/yyyy");
 
         QXmlStreamReader::TokenType token;
         while(!in.atEnd()) {
@@ -227,15 +236,23 @@ bool Task::checkConsistency()
 {
     QList<HitElement> hitlist;
     QHash<QString, QList<Task::Hit > >::const_iterator hitr = hits.begin(), hend = hits.end();
+    totHours = 0;
+    totOverestimation = 0;
+    // ensure tasks are in list
+    updateSubTasks();
     while(hitr != hend) {
         const QList<Task::Hit>& l(hitr.value());
         for(int i=0; i<l.count(); i++) {
             hitlist << HitElement(this, hitr.key(), l[i].timestamp, l[i].duration);
         }
+        double subtaskHours, subtaskOverestimation;
+        QVector<double> o;
+        subtaskHours = HitElement::overestimations(hitlist, o, subtaskOverestimation);
+        subTasks[hitr.key()].totHours = subtaskHours;
+        totHours += subtaskHours;
+        totOverestimation +=subtaskOverestimation;
         hitr++;
     }
-    QVector<double> o;
-    totHours = HitElement::overestimations(hitlist, o, totOverestimation);
     return totHours >= 0;
 }
 

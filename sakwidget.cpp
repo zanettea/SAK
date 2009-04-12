@@ -227,6 +227,7 @@ void SakWidget::redrawPixmaps() {
     if (m_redrawCachedPixmap) {
         drawBasicShape(m_cachedPixmap);
         QPainter p(&m_cachedPixmap);
+        p.setRenderHints(QPainter::Antialiasing, true);
         QPen pen;
         pen.setColor(m_task.fgColor);
         p.setPen(pen);
@@ -239,12 +240,47 @@ void SakWidget::redrawPixmaps() {
             p.setFont(f);
             p.drawText(m_rect, Qt::AlignCenter, m_task.title);
         }
+
+        // draw completion
+        QPointF dateInfoTopLeft(m_rect.width() - 100, m_rect.height() - 100);
+        if (m_task.dueDate.isValid()) {
+            p.setBrush(Qt::red);
+            int days = QDate::currentDate().daysTo(m_task.dueDate);
+            p.setPen(Qt::NoPen);
+            if (days <= 0) {
+                p.setBrush(Qt::red);
+            } else {
+                QConicalGradient g(dateInfoTopLeft + QPointF(32,32), 90);
+                g.setColorAt(0.0, Qt::red);
+                g.setColorAt(1.0, Qt::green);
+                p.setBrush(g);
+                days = qMin(30, days);
+                days *= 12;
+            }
+
+            p.drawPie(QRectF(dateInfoTopLeft, QSizeF(64, 64)), 90*16, -(360 - days)*16);
+            p.drawPixmap(dateInfoTopLeft, QPixmap(":/images/hourglass.png"));
+        }
+        if (m_task.estimatedHours) {
+            p.setPen(Qt::NoPen);
+            QLinearGradient g(QPointF(dateInfoTopLeft.x(),0), QPointF(dateInfoTopLeft.x()+64,0));
+            g.setColorAt(0.0, Qt::red);
+            g.setColorAt(1.0, Qt::green);
+            p.setBrush(Qt::gray);
+            QRectF infoRect(dateInfoTopLeft + QPointF(0,66), QSizeF(64, 8));
+            p.drawRoundedRect(infoRect,3,3);
+            p.setBrush(g);
+            double percentage = ((double)m_task.totHours / (double)m_task.estimatedHours) * 64.0;
+            p.drawRoundedRect(infoRect.adjusted(0,0,percentage-64,0), 3,3);
+        }
+
         m_redrawCachedPixmap = false;
     }
     
     if (m_redrawCachedPixmapB) {
         drawBasicShape(m_cachedPixmapB);
         QPainter p(&m_cachedPixmapB);
+        p.setRenderHints(QPainter::Antialiasing, true);
         QPen pen;
         pen.setColor(m_task.fgColor);
         p.setPen(pen);

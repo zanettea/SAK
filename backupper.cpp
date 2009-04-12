@@ -56,10 +56,11 @@ void Backupper::doCyclicBackup() {
                 map.remove(d);
             }
         }
-        if (!QFile(QSettings("ZanzaSoft", "SAK").fileName()).copy(fileName)) {
-            qWarning() << "SAK: failed to copy " << QSettings("ZanzaSoft", "SAK").fileName() << " to cyclic backup file " <<  fileName;
+        QString origFile = saveDir.filePath(QFileInfo(filePath).fileName());
+        if (!QFile(origFile).copy(fileName) ) {
+            qWarning() << "SAK: failed to copy " << origFile << " to cyclic backup file " <<  fileName;
         } else {
-            qWarning() << "SAK: backup to " << fileName;
+            qWarning() << "SAK: backup " << origFile << " to " << fileName;
         }
     }
 }
