@@ -9,6 +9,8 @@ CONFIG += qt \
     debug
 QT += opengl
 
+LIBS += -lpython2.5
+
 # Input
 HEADERS += sak.h \
     sakwidget.h \
@@ -18,7 +20,8 @@ HEADERS += sak.h \
     piechart.h \
     task.h \
     saksubwidget.h \
-    timeline.h
+    timeline.h \
+    gmailpyinterface.h
 SOURCES += main.cpp \
     sak.cpp \
     sakhits.cpp \
@@ -28,7 +31,8 @@ SOURCES += main.cpp \
     task.cpp \
     saksubwidget.cpp \
     backupper.cpp \
-    timeline.cpp
+    timeline.cpp \
+    gmailpyinterface.cpp
 win32:
 unix { 
     contains(CONFIG, argb):DEFINES += ARGB
