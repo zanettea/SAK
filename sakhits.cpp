@@ -8,6 +8,14 @@
 
 #include "sak.h"
 #include "backupper.h"
+#include "sakwidget.h"
+#include "saksubwidget.h"
+#include "sakmessageitem.h"
+#include "pixmapviewer.h"
+#include "timeline.h"
+#include "backupper.h"
+#include "piechart.h"
+#include "gmailpyinterface.h"
 
 
 //BEGIN Hits  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

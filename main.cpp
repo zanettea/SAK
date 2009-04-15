@@ -21,11 +21,9 @@ protected:
      void timerEvent(QTimerEvent*) { hide(); deleteLater(); }
 };
 
-#include "gmailpyinterface.h"
 
 int main(int argc, char** argv)
 {
-    GmailPyInterface gmail;
     QApplication app (argc, argv);
 
 #ifdef Q_OS_LINUX

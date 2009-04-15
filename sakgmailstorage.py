@@ -10,30 +10,46 @@ import libgmail
 
 class SAKGmailStorage:
 
-    def retInt(self):
-        print "\nciao\n"
-        return 2
+    def __init__(self):
+         self.error="No error"
 
-    def store(self, filePath, label):
-        if ga.storeFile(filePath, label=label):
-            print "File `%s` stored successfully in `%s`." % (filename, label)
+    def setError(self, error):
+         self.error = error
+         sys.stderr.write(self.error)
+
+    def getError(self):
+        return self.error
+
+    def login(self, user, passwd):
+        self.ga = libgmail.GmailAccount(user, passwd)
+        try:
+            self.ga.login()
+        except libgmail.GmailLoginFailure:
+            self.setError("Login failed. (Wrong username/password?)\n")
+            return 0
         else:
-            print "Could not store file."
+            self.setError("Log in successful.\n")
+            return 1
+        self.setError("Login failed. (Wrong username/password?)\n");
+        return 0;
+
+
+    def store(self, filePath, subject, label):
+        msg = libgmail.GmailComposedMessage(to="", subject=subject, body="", filenames=[filePath]) 
+        draftMsg = self.ga.sendMessage(msg, asDraft = True) 
+        if draftMsg and label: 
+            draftMsg.addLabel(label) 
+        if draftMsg:
+            self.setError( "File `%s` stored successfully in `%s`." % (filePath, label) )
+            return 1
+        else:
+            self.setError( "Could not store file `%s` in `%s`." % (filePath, label) )
+            return 0
 
     def fetchLatest(self):
         print "\nFetch latest tasks..."
-        ga = libgmail.GmailAccount("zanettea", "bear4ever")
 
-        print "\nPlease wait, logging in..."
-
-        try:
-            ga.login()
-        except libgmail.GmailLoginFailure:
-            print "\nLogin failed. (Wrong username/password?)"
-        else:
-            print "Log in successful.\n"
-
-        for thread in ga.getMessagesByQuery(" label:SAK1", allPages=True):
+        for thread in self.ga.getMessagesByQuery(" label:SAK1", allPages=True):
             print thread
             print thread.date
             print len(thread)

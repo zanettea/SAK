@@ -18,13 +18,15 @@
 #include <QRectF>
 #include <QDebug>
 
-#include "sakwidget.h"
-#include "saksubwidget.h"
-#include "sakmessageitem.h"
-#include "pixmapviewer.h"
-#include "timeline.h"
 #include "task.h"
 
+
+class SakWidget;
+class SakSubWidget;
+class SakMessageItem;
+class PixmapViewer;
+class Timeline;
+class HitItem;
 
 class Sak : public QObject
 {
@@ -48,6 +50,7 @@ public slots:
 //    void saveAsDb();
     void exportDbCsv();
     void sendByEmail();
+    void saveToGmail();
 protected slots:
     void init();
     void destroy();
@@ -107,6 +110,7 @@ private:
     class GView* m_view;
     class Backupper* m_backupper;
     class Incremental* m_incremental;
+    class GmailPyInterface* m_gmail;
 
     //BEGIN Settings data:
 public:
@@ -156,6 +160,7 @@ private:
     QAction *saveAsDbAction;
     QAction *openAction;
     QAction *exportDbCsvAction;
+    QAction *saveToGmailAction;
     QAction *sendByEmailAction;
 
     QSystemTrayIcon *trayIcon;

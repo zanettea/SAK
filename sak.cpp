@@ -10,8 +10,14 @@
 #include <QGraphicsEllipseItem>
 
 #include "sak.h"
+#include "sakwidget.h"
+#include "saksubwidget.h"
+#include "sakmessageitem.h"
+#include "pixmapviewer.h"
+#include "timeline.h"
 #include "backupper.h"
 #include "piechart.h"
+#include "gmailpyinterface.h"
 
 
 //END Task <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -97,6 +103,7 @@ void Sak::init()
 {
     m_backupper = new Backupper;
     m_incremental = new Incremental;
+    m_gmail = new GmailPyInterface;
 
     // load the data model
     QSettings settings("ZanzaSoft", "SAK");
@@ -388,6 +395,25 @@ void Sak::sendByEmail()
     QProcess::startDetached(command);
 }
 
+void Sak::saveToGmail()
+{
+    if (!m_settings) return;
+    flush();
+    QSettings settings("ZanzaSoft", "SAK");
+
+    QDir saveDir(QFileInfo(settings.fileName()).dir());
+    saveDir.mkdir("SakTasks");
+    saveDir.cd("SakTasks");
+    QStringList nameFilters;
+    nameFilters << "*.xml";
+    QStringList files = saveDir.entryList( nameFilters, QDir::Files);
+    QStringList filePaths;
+    foreach (QString taskXmlFileName, files) {
+        filePaths << saveDir.filePath(taskXmlFileName);
+    }
+    m_gmail->storeTaskFiles(filePaths);
+}
+
 void Sak::open()
 {
     QStringList fileNames = QFileDialog::getOpenFileNames(0, "Open a new task", QString(), "*.xml" );
@@ -447,6 +473,7 @@ void Sak::destroy()
     m_view->deleteLater();
     delete m_backupper;
     delete m_incremental;
+    delete m_gmail;
     m_previewing = false;
     m_changedHit = false;
     m_timerId = 0;
@@ -1400,6 +1427,7 @@ void Sak::setupSettingsWidget()
 //    dbMenu->addAction(saveAsDbAction);
     dbMenu->addAction(exportDbCsvAction);
     dbMenu->addAction(sendByEmailAction);
+    dbMenu->addAction(saveToGmailAction);
     QMenu* actionsMenu =  mainMenu->addMenu("Actions");
     actionsMenu->addAction(startAction);
     actionsMenu->addAction(stopAction);
@@ -1643,6 +1671,9 @@ void Sak::createActions()
 
     sendByEmailAction = new QAction(tr("Send by email (with kmail)"), m_settings);
     connect(sendByEmailAction, SIGNAL(triggered()), this, SLOT(sendByEmail()));
+
+    saveToGmailAction = new QAction(tr("Store in your gmail account free space"), m_settings);
+    connect(saveToGmailAction, SIGNAL(triggered()), this, SLOT(saveToGmail()));
 
     openAction = new QAction(tr("Import a task from file"), m_settings);
     connect(openAction, SIGNAL(triggered()), this, SLOT(open()));
