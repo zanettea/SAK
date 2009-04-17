@@ -395,6 +395,11 @@ void Sak::sendByEmail()
     QProcess::startDetached(command);
 }
 
+void Sak::logInGmail()
+{
+    m_gmail->forceLogin();
+}
+
 void Sak::saveToGmail()
 {
     if (!m_settings) return;
@@ -556,13 +561,7 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
             }
         }
     } else if (obj == m_view && e->type() == QEvent::Show) {
-#if defined(Q_WS_X11)
-        // make sure the application has focus to accept keyboard inputs
-        XGetInputFocus((X11::Display*)QX11Info::display(), &X11::CurrentFocusWindow, &X11::CurrentRevertToReturn);
-        X11::XSetInputFocus((X11::Display*)QX11Info::display(), QX11Info::appRootWindow(QX11Info::appScreen()),  RevertToParent, CurrentTime);
-        X11::XFlush((X11::Display*)QX11Info::display());
-#endif
-        m_view->grabKeyboard();
+        QTimer::singleShot(500, this, SLOT(grabKeyboard()));
     } else if (obj == m_view && e->type() == QEvent::Close) {
         if (trayIcon->isVisible()) {
             return true;
@@ -1115,6 +1114,16 @@ QRect Layouting( const QList<SakWidget*>& sortedWidgets)
     return QRect(QPoint(r.x(), r.y()), QSize(r.width(), (int)(0.25 * r.height())));
 }
 
+void Sak::grabKeyboard()
+{
+#if defined(Q_WS_X11)
+    // make sure the application has focus to accept keyboard inputs
+    XGetInputFocus((X11::Display*)QX11Info::display(), &X11::CurrentFocusWindow, &X11::CurrentRevertToReturn);
+    X11::XSetInputFocus((X11::Display*)QX11Info::display(), QX11Info::appRootWindow(QX11Info::appScreen()),  RevertToParent, CurrentTime);
+    X11::XFlush((X11::Display*)QX11Info::display());
+#endif
+    m_view->grabKeyboard();
+}
 
 void Sak::popup()
 {
@@ -1427,7 +1436,12 @@ void Sak::setupSettingsWidget()
 //    dbMenu->addAction(saveAsDbAction);
     dbMenu->addAction(exportDbCsvAction);
     dbMenu->addAction(sendByEmailAction);
+    dbMenu->addAction(gmailLoginAction);
     dbMenu->addAction(saveToGmailAction);
+    if (!m_gmail->isValid()) {
+        gmailLoginAction->setEnabled(false);
+        saveToGmailAction->setEnabled(false);
+    }
     QMenu* actionsMenu =  mainMenu->addMenu("Actions");
     actionsMenu->addAction(startAction);
     actionsMenu->addAction(stopAction);
@@ -1674,6 +1688,9 @@ void Sak::createActions()
 
     saveToGmailAction = new QAction(tr("Store in your gmail account free space"), m_settings);
     connect(saveToGmailAction, SIGNAL(triggered()), this, SLOT(saveToGmail()));
+
+    gmailLoginAction = new QAction(tr("Log in gmail"), m_settings);
+    connect(gmailLoginAction, SIGNAL(triggered()), this, SLOT(logInGmail()));
 
     openAction = new QAction(tr("Import a task from file"), m_settings);
     connect(openAction, SIGNAL(triggered()), this, SLOT(open()));

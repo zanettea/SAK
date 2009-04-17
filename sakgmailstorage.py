@@ -27,6 +27,9 @@ class SAKGmailStorage:
         except libgmail.GmailLoginFailure:
             self.setError("Login failed. (Wrong username/password?)\n")
             return 0
+        except:
+            self.setError("Network error\n")
+            return 0;
         else:
             self.setError("Log in successful.\n")
             return 1

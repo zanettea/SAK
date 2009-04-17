@@ -50,6 +50,7 @@ public slots:
 //    void saveAsDb();
     void exportDbCsv();
     void sendByEmail();
+    void logInGmail();
     void saveToGmail();
 protected slots:
     void init();
@@ -62,6 +63,7 @@ protected slots:
     void selectedTask();
     void doubleClickedTask(QTreeWidgetItem* i, int column);
     void selectColor();
+    void grabKeyboard(); // delayed grab of keayboard
     void popup();
     void workingOnTask(const QString& taskname, const QString& subtask);
     void popupSubtasks(const QString& taskname);
@@ -160,6 +162,7 @@ private:
     QAction *saveAsDbAction;
     QAction *openAction;
     QAction *exportDbCsvAction;
+    QAction *gmailLoginAction;
     QAction *saveToGmailAction;
     QAction *sendByEmailAction;
 

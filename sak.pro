@@ -33,10 +33,6 @@ SOURCES += main.cpp \
     backupper.cpp \
     timeline.cpp \
     gmailpyinterface.cpp
-win32:
-unix { 
-    contains(CONFIG, argb):DEFINES += ARGB
-    else:
-}
-contains(CONFIG, vale):RESOURCES += sak.vale.qrc
-else:RESOURCES += sak.qrc
+
+
+RESOURCES += sak.qrc

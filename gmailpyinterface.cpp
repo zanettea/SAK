@@ -12,6 +12,7 @@ GmailPyInterface::GmailPyInterface()
 {
     m_user = 0;
     m_pass = 0;
+    m_gs = 0;
 
     Py_Initialize();
 
@@ -24,21 +25,28 @@ GmailPyInterface::GmailPyInterface()
     qWarning() << PyRun_SimpleString((char*)QResource(":/sakgmailstorage.py").data());
 
     PyObject* main_module = PyImport_AddModule("__main__");
+    if (!main_module) return;
     PyObject* global_dict = PyModule_GetDict(main_module);
+    if (!global_dict) return;
 
     PyObject* gsClass = PyDict_GetItemString(global_dict, "SAKGmailStorage");
-    m_gs = PyObject_CallObject(gsClass, NULL);
-    if (m_gs) {
-//        qWarning() << PyObject_CallMethod(gs, "fetchLatest", 0);
-    } else {
-
+    if (!gsClass) {
+        qWarning() << "Cannot find SAKGmailStorage class!";
+        return;
     }
-
+    m_gs = PyObject_CallObject(gsClass, NULL);
 }
 
 GmailPyInterface::~GmailPyInterface()
 {
     Py_Finalize();
+}
+
+bool GmailPyInterface::forceLogin()
+{
+    m_user = 0;
+    m_pass = 0;
+    login();
 }
 
 bool GmailPyInterface::login()
@@ -69,8 +77,8 @@ bool GmailPyInterface::login()
             buttons->addWidget(cancelbutton);
             layout->addLayout(buttons);
             d.exec();
-            if (user->text().isEmpty() || pass->text().isEmpty()) continue;
             if (d.result() == QDialog::Accepted) {
+                if (user->text().isEmpty() || pass->text().isEmpty()) continue;
                 m_user = PyString_FromString(user->text().toAscii());
                 m_pass = PyString_FromString(pass->text().toAscii());
             } else return false;
