@@ -342,7 +342,7 @@ void Sak::hitsListItemChanged(QTreeWidgetItem* i, int column)
     hitsList->blockSignals(true);
     m_changedHit = true;
     // save change in structure m_editedTasks
-    {
+    while(1) {
         const HitElement& origHit = i->data(1, Qt::UserRole).value<HitElement>();
         // find hit in m_editedTasks
         Q_ASSERT(origHit.task);
@@ -353,7 +353,10 @@ void Sak::hitsListItemChanged(QTreeWidgetItem* i, int column)
         QList< Task::Hit >& origList(et.hits[origHit.subtask]);
 
         int hitPosition = origList.indexOf(Task::Hit(origHit.timestamp, origHit.duration));
-        if (hitPosition==-1) return;
+        if (hitPosition==-1) {
+            qWarning() << "CANNOT FIND IN TASK LIST "<< t.title << origHit.subtask << origHit.timestamp << origHit.duration;
+            break;
+        }
         if (!m_editedTasks.contains(i->text(1))) {
             i->setText(1, t.title);
             qDebug() << "Task " << i->text(1) << " does not exists -> undo change";
@@ -369,10 +372,11 @@ void Sak::hitsListItemChanged(QTreeWidgetItem* i, int column)
             qDebug() << "insert hit into task " << i->text(1) << p.timestamp;
             nt.hits[i->text(2)] << p;
         }
+        break;
     }
     if (column == 1) {
-        if (!i) return;
-        if (m_editedTasks.contains(i->text(column))) {
+        if (!i) {}
+        else if (m_editedTasks.contains(i->text(column))) {
             i->setIcon(column, m_editedTasks[i->text(column)].icon);
         } else {
             i->setIcon(column, QIcon());
