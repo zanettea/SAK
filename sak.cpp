@@ -862,6 +862,9 @@ void Sak::timerEvent(QTimerEvent* e)
             m_timerId = startTimer(msecs);
             m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(msecs);
         } else {
+            if (m_settings && m_settings->isVisible() && !m_settings->isActiveWindow()) {
+                 trayIcon->showMessage("Delayed check point", "Delayed check point due to open settings. Close the setting window!", QSystemTrayIcon::Warning, -1);
+            }
             qDebug() << "SAK: wait 5 seconds";
             killTimer(m_timerId);
             m_timerId = startTimer(5000);
