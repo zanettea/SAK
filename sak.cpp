@@ -144,12 +144,15 @@ void Sak::init()
 
     m_editedTasks = m_tasks;
 
+
+    hitsTimeline = 0;
     //merge piecies
     interactiveMergeHits();
 
     m_editedTasks = m_tasks;
 
     setupSettingsWidget();
+
 
     m_settings->installEventFilter(this);
     hitsList->installEventFilter(this);
