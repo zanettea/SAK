@@ -317,7 +317,8 @@ void Sak::selectedStartDate(const QDate& date)
     cal2->setMinimumDate(date);
     cal4->setMinimumDate(date);
     populateHitsList(createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
-    hitsTimeline->setPeriod(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate()));
+    if (hitsTimeline)
+        hitsTimeline->setPeriod(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate()));
 }
 
 void Sak::selectedEndDate(const QDate& date)
@@ -509,6 +510,7 @@ void Sak::populateHitsList(const QList<HitElement>& hits, QTreeWidget* theHitsLi
 
 void  Sak::populateHitsTimeline(const QList<HitElement>& hits, Timeline* timeline )
 {
+    if (!timeline) return;
     QGraphicsScene* scene = timeline->scene();
     if (scene) {
         QList<QGraphicsItem*> items = scene->items();
