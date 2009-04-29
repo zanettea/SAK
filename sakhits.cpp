@@ -311,8 +311,8 @@ void Sak::selectedStartDate(const QDate& date)
         cal3->setSelectedDate(date);
     }
     if (cal2->selectedDate() < cal1->selectedDate()) {
-        cal2->setSelectedDate(date);
-        cal4->setSelectedDate(date);
+        cal2->setSelectedDate(date.addDays(1));
+        cal4->setSelectedDate(date.addDays(1));
     }
     cal2->setMinimumDate(date);
     cal4->setMinimumDate(date);
@@ -329,8 +329,8 @@ void Sak::selectedEndDate(const QDate& date)
         cal4->setSelectedDate(date);
     }
     if (cal1->selectedDate() > date) {
-        cal2->setSelectedDate(cal1->selectedDate());
-        cal4->setSelectedDate(cal1->selectedDate());
+        cal2->setSelectedDate(cal1->selectedDate().addDays(1));
+        cal4->setSelectedDate(cal1->selectedDate().addDays(1));
     }
     populateHitsList(createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
     hitsTimeline->setPeriod(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate()));
