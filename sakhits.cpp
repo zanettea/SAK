@@ -428,11 +428,19 @@ void Sak::hitsSelectedInTimeline(HitItem* hitem)
 {
     const Task* t = hitem->task();
     QList<QTreeWidgetItem *> items = hitsList->findItems(hitem->timestamp().toString(DATETIMEFORMAT), Qt::MatchExactly, 0);
+    qDebug() << "look for " << hitem->timestamp().toString(DATETIMEFORMAT);
+
     QString tmp(QString ("%1").arg(hitem->duration()));
+    qDebug() << "duration " << tmp;
     foreach(QTreeWidgetItem* item, items) {
         if (item->text(1) == t->title && item->text(2) == hitem->subtask() && item->text(3) == tmp) {
             hitsList->clearSelection();
             item->setSelected(true);
+            if (hitem->timestamp() != hitem->newTimestamp() || hitem->duration() != hitem->newDuration()) {
+                item->setText(0, hitem->newTimestamp().toString(DATETIMEFORMAT));
+                item->setText(3, QString("%1").arg(hitem->newDuration()));
+                hitem->commitChanges();
+            }
             hitsList->scrollToItem(item);
         }
     }
@@ -531,6 +539,7 @@ void  Sak::populateHitsTimeline(const QList<HitElement>& hits, Timeline* timelin
         }
         foreach(HitElement e, hits) {
             HitItem* item = new HitItem(e.task, e.timestamp, e.duration, e.subtask);
+            connect(item, SIGNAL(changed()), timeline, SLOT(selectionChanged()));
             scene->addItem(item);
         }
     }
@@ -594,7 +603,6 @@ void Sak::interactiveMergeHits()
     connect(cancel, SIGNAL(clicked()), &mergeDialog, SLOT(reject()));
     // do auto merging
     if ( mergeDialog.exec() ) {
-        qDebug() << "Do merge!!!";
         for (int i=0; i<theHitsList->topLevelItemCount(); i++) {
             QTreeWidgetItem* w = theHitsList->topLevelItem ( i );
             if (!w->isDisabled()) {

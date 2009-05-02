@@ -9,20 +9,13 @@ HitItem::HitItem(const Task* t, const QDateTime& timestamp, unsigned int duratio
     : QGraphicsItem(parent)
     , m_task(t)
     , m_d(duration)
+    , m_newD(duration)
     , m_t(timestamp)
+    , m_newT(timestamp)
     , m_subtask(subtask)
 {
-    setPos(timestamp.toTime_t() / 60.0, 0.0);
-    m_rect = QRectF(-(int)duration / 2.0, -TLH2, duration, TLH );
+    reshape();
 
-    float halfd = duration/2.0;
-    m_shape.moveTo(-halfd, 0);
-    m_shape.lineTo(-halfd+1, -TLH2);
-    m_shape.lineTo(halfd-1, -TLH2);
-    m_shape.lineTo(halfd, 0);
-    m_shape.lineTo(halfd-1, TLH2);
-    m_shape.lineTo(-halfd+1, TLH2);
-    m_shape.closeSubpath();
     QColor c(m_task->fgColor); c.setAlpha(240);
     m_pen.setColor(c);
     QColor d(m_task->bgColor); d.setAlpha(180);
@@ -36,10 +29,35 @@ HitItem::HitItem(const Task* t, const QDateTime& timestamp, unsigned int duratio
     setToolTip( timestamp.toString(DATETIMEFORMAT) + "\n" + subtask + " @ " + t->title + "\n" + QString("%1").arg(duration) +  " minutes long");
 }
 
+void HitItem::reshape()
+{
+    prepareGeometryChange();
+
+    setPos(m_newT.toTime_t() / 60.0, 0.0);
+    m_rect = QRectF(-(int)m_newD / 2.0, -TLH2, m_newD, TLH ).adjusted(-2,-2,2,2);
+
+    m_shape = QPainterPath();
+    float halfd = m_newD/2.0;
+    m_shape.moveTo(-halfd, 0);
+    m_shape.lineTo(-halfd+1, -TLH2);
+    m_shape.lineTo(halfd-1, -TLH2);
+    m_shape.lineTo(halfd, 0);
+    m_shape.lineTo(halfd-1, TLH2);
+    m_shape.lineTo(-halfd+1, TLH2);
+    m_shape.closeSubpath();
+}
+
+void HitItem::commitChanges() {
+    m_t = m_newT;
+    m_d = m_newD;
+    reshape();
+}
 
 void HitItem::paint ( QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget)
 {
     painter->save();
+    if (isSelected()) m_pen.setWidth(3);
+    else m_pen.setWidth(1);
     painter->setPen(m_pen);
     painter->setBrush(m_bgbrush);
     painter->drawPath(m_shape);
@@ -51,6 +69,15 @@ void HitItem::mousePressEvent(QGraphicsSceneMouseEvent * event)
     if (cursor().shape() != Qt::SizeHorCursor) {
         setCursor(QCursor(Qt::SizeAllCursor));
     }
+
+    if (qApp->keyboardModifiers() & Qt::ControlModifier && isSelected()) {
+        m_lastPos = event->pos();
+        m_moving = true;
+    } else {
+        m_moving = false;
+    }
+
+    QGraphicsItem::mousePressEvent(event);
 }
 
 void HitItem::mouseReleaseEvent(QGraphicsSceneMouseEvent * event)
@@ -58,11 +85,28 @@ void HitItem::mouseReleaseEvent(QGraphicsSceneMouseEvent * event)
     if (cursor().shape() == Qt::SizeAllCursor) {
         setCursor(m_savedCursor);
     }
+
+
+    if (m_moving) {
+        double diff = m_lastPos.x() - event->pos().x();
+        if (m_leftExtending) {
+            m_newD = qMax(2.0, m_newD + diff);
+            m_newT = m_newT.addSecs(-diff * 30);
+        } else if (m_rightExtending) {
+            m_newD = qMax(2.0, m_newD - diff);
+            m_newT = m_newT.addSecs(-diff * 30);
+        } else {
+            m_newT = m_newT.addSecs(-diff*60);
+        }
+        reshape();
+        m_moving=false;
+        emit changed();
+    }
+    QGraphicsItem::mouseReleaseEvent(event);
 }
 
 void HitItem::mouseMoveEvent(QGraphicsSceneMouseEvent * event)
 {
-    qDebug() << "mouse move ";
 }
 
 void HitItem::hoverEnterEvent ( QGraphicsSceneHoverEvent * event )
@@ -75,17 +119,27 @@ void HitItem::hoverLeaveEvent ( QGraphicsSceneHoverEvent * event )
     setCursor(m_savedCursor);
 }
 
+
 void HitItem::hoverMoveEvent ( QGraphicsSceneHoverEvent * event )
 {
-    if (event->lastScreenPos().x() != event->screenPos().x()) {
+    if (isSelected() && event->lastScreenPos().x() != event->screenPos().x()) {
         double dsx = event->scenePos().x() - event->lastScenePos().x();
         double dSx = event->screenPos().x() - event->lastScreenPos().x();
         double scale = sqrt((dSx*dSx) / (dsx*dsx));
 
         double one = qMin(1.0, 10.0 / scale);
-        if (event->pos().x() <= m_rect.left()+one || event->pos().x() >= m_rect.right()-one )
+        if (event->pos().x() <= m_rect.left()+one) {
+            m_leftExtending=true;
+            m_rightExtending=false;
             setCursor(QCursor(Qt::SizeHorCursor));
-        else setCursor(m_savedCursor);
+        } else if (event->pos().x() >= m_rect.right()-one ) {
+            m_leftExtending=false;
+            m_rightExtending=true;
+            setCursor(QCursor(Qt::SizeHorCursor));
+        } else {
+            setCursor(m_savedCursor);
+            m_leftExtending = m_rightExtending = false;
+        }
     }
 }
 
@@ -190,7 +244,7 @@ void Timeline::mouseMoveEvent(QMouseEvent* e)
     m_cursorLine->setPos(QPointF(pos, 0));
     m_cursorText->setPlainText(QDateTime::fromTime_t(pos*60.0).toString("hh:mm dd/MM/yy"));
 
-    if (e->buttons() & Qt::LeftButton)
+    if ((e->buttons() & Qt::LeftButton) && ! (qApp->keyboardModifiers() & Qt::ControlModifier) )
         m_moving=true;
     QGraphicsView::mouseMoveEvent(e);
 }
@@ -224,4 +278,3 @@ void Timeline::selectionChanged()
         emit hitSelected(tmp);
     }
 }
-

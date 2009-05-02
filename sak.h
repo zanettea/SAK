@@ -48,7 +48,6 @@ public slots:
     void open(const QStringList& filePaths = QStringList());
 //    void saveAsDb();
     void exportDbCsv();
-    void sendByEmail();
     void logInGmail();
     void saveToGmail();
     void importFromGmail();

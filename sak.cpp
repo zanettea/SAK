@@ -290,6 +290,11 @@ Task Sak::loadTaskFromFile(const QString& filePath)
 
 void Sak::flush()
 {
+    if (m_changedTask)
+        saveTaskChanges();
+    if (m_changedHit)
+        saveHitChanges();
+
     if (!m_settings) return;
     m_backupper->doCyclicBackup();
     QSettings settings("ZanzaSoft", "SAK");
@@ -380,24 +385,6 @@ void Sak::exportDbCsv()
     file.close();
 }
 
-void Sak::sendByEmail()
-{
-    if (!m_settings) return;
-    flush();
-    QSettings settings("ZanzaSoft", "SAK");
-    QString command = "kmail -s \"Sak db backup\" --body \"Enjoy the send by email feature of Sak. Bye. \" --attach \"" + settings.fileName() + "\" ";
-
-    QDir saveDir(QFileInfo(settings.fileName()).dir());
-    saveDir.mkdir("SakTasks");
-    saveDir.cd("SakTasks");
-    QStringList nameFilters;
-    nameFilters << "*.xml";
-    QStringList files = saveDir.entryList( nameFilters, QDir::Files);
-    foreach (QString taskXmlFileName, files) {
-        command += " --attach \"" + saveDir.filePath(taskXmlFileName) + "\" ";
-    }
-    QProcess::startDetached(command);
-}
 
 void Sak::logInGmail()
 {
@@ -598,7 +585,7 @@ void Sak::addDefaultTask()
 {
     QString tentativeName;
     do {
-        tentativeName = QString("task %1").arg(taskCounter++);
+        tentativeName = QString("Task %1").arg(taskCounter++);
     } while(m_editedTasks.contains(tentativeName));
 
     Task& t = m_editedTasks[tentativeName];
@@ -683,8 +670,7 @@ void Sak::selectColor() {
         fgColorButton->setPalette(p);
         bgColorButton->setPalette(p);
     }
-    m_changedTask=true;
-
+    commitCurrentTask();
 }
 
 bool Sak::taskTreeEventFilter(QEvent* e)
@@ -767,6 +753,20 @@ void Sak::commitCurrentTask()
             t.dueDate = dueEditor->date();
         t.estimatedHours = estimatedHoursEditor->value();
         currentTask=currentTitle;
+
+        if (tasksTree->selectedItems().size() != 1) return;
+        QTreeWidgetItem* item = tasksTree->selectedItems()[0];
+        item->setText(0, taskTitleEditor->text());
+        QIcon icon;
+        icon.addPixmap(t.icon);
+        item->setSizeHint(0, QSize(32,32));
+        item->setIcon(0, icon);
+        for(int i=0; i<3; i++) {
+            item->setForeground(i,t.fgColor);
+            item->setBackground(i,t.bgColor);
+        }
+
+
     } else { // subtask edited
         if (!m_editedTasks.contains(currentTask)) return;
         Task& t(m_editedTasks[currentTask]);
@@ -801,7 +801,19 @@ void Sak::commitCurrentTask()
             }
         }
         currentSubtask = currentTitle;
-    }
+
+        if (tasksTree->selectedItems().size() != 1) return;
+        QTreeWidgetItem* item = tasksTree->selectedItems()[0];
+        item->setText(0, taskTitleEditor->text());
+        QIcon icon;
+        icon.addPixmap(t.icon);
+        item->setSizeHint(0, QSize(32,32));
+        item->setIcon(0, icon);
+        for(int i=0; i<3; i++) {
+            item->setForeground(i,st.fgColor);
+            item->setBackground(i,st.bgColor);
+        }
+    }    
 }
 
 void Sak::selectedTask()
@@ -1487,7 +1499,6 @@ void Sak::setupSettingsWidget()
     dbMenu->addAction(openAction);
 //    dbMenu->addAction(saveAsDbAction);
     dbMenu->addAction(exportDbCsvAction);
-    dbMenu->addAction(sendByEmailAction);
     dbMenu->addAction(gmailLoginAction);
     dbMenu->addAction(saveToGmailAction);
     if (!m_gmail->isValid()) {
@@ -1597,6 +1608,7 @@ void Sak::setupSettingsWidget()
     fgColorButton = new QPushButton("fg\ncolor");
     fgColorButton->setToolTip("Foreground color");
     fgColorButton->setSizePolicy(QSizePolicy(QSizePolicy::Preferred, QSizePolicy::MinimumExpanding));
+
 
     colorsLayout->addWidget(bgColorButton);
     colorsLayout->addWidget(fgColorButton);
@@ -1738,9 +1750,6 @@ void Sak::createActions()
 
     exportDbCsvAction = new QAction(tr("Export hits in CSV format"), m_settings);
     connect(exportDbCsvAction, SIGNAL(triggered()), this, SLOT(exportDbCsv()));
-
-    sendByEmailAction = new QAction(tr("Send by email (with kmail)"), m_settings);
-    connect(sendByEmailAction, SIGNAL(triggered()), this, SLOT(sendByEmail()));
 
     saveToGmailAction = new QAction(tr("Store in your gmail account free space"), m_settings);
     connect(saveToGmailAction, SIGNAL(triggered()), this, SLOT(saveToGmail()));
