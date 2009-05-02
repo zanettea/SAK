@@ -70,6 +70,7 @@ Sak::Sak(QObject* parent)
     , m_timeoutPopup(0)
     , m_settings(0)
     , m_changedHit(false)
+    , m_changedTask(false)
     , m_subtaskView(false)
 {
     summaryList = hitsList = 0;
@@ -422,9 +423,14 @@ void Sak::saveToGmail()
     m_gmail->storeTaskFiles(filePaths);
 }
 
-void Sak::open()
+void Sak::importFromGmail()
 {
-    QStringList fileNames = QFileDialog::getOpenFileNames(0, "Open a new task", QString(), "*.xml" );
+    QStringList filePaths = m_gmail->fetchLatestTasks();
+}
+
+void Sak::open(const QStringList& _fileNames)
+{
+    QStringList fileNames = _fileNames.size()?_fileNames:QFileDialog::getOpenFileNames(0, "Open a new task", QString(), "*.xml" );
     foreach(QString fileName, fileNames) {
         QFile file(fileName);
         if (!file.exists()) {
@@ -464,11 +470,13 @@ void Sak::open()
         }
     }
 
-    m_settings->hide();
-    destroy();
-    init();
-    m_settings->show();
-    start();
+    if (!fileNames.isEmpty()) {
+        m_settings->hide();
+        destroy();
+        init();
+        m_settings->show();
+        start();
+    }
 }
 
 void Sak::destroy()
@@ -514,7 +522,7 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
 //        qDebug() << "event : " << e->type();
 //    }
     if (obj == tasksTree) {
-        return settingsEventFilter(e);
+        return taskTreeEventFilter(e);
     } else if (obj == hitsList || obj == summaryList) {
         return hitsListEventFilter(e);
     } else if (obj == m_settings && e->type() == QEvent::Close) {
@@ -564,6 +572,7 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
             }
         }
     } else if (obj == m_view && e->type() == QEvent::Show) {
+        grabKeyboard();
         QTimer::singleShot(500, this, SLOT(grabKeyboard()));
     } else if (obj == m_view && e->type() == QEvent::Close) {
         if (trayIcon->isVisible()) {
@@ -590,20 +599,21 @@ void Sak::addDefaultTask()
     QString tentativeName;
     do {
         tentativeName = QString("task %1").arg(taskCounter++);
-    } while(m_tasks.contains(tentativeName));
+    } while(m_editedTasks.contains(tentativeName));
 
-    Task& t = m_tasks[tentativeName];
+    Task& t = m_editedTasks[tentativeName];
     t.title = tentativeName;
     QTreeWidgetItem* item = new QTreeWidgetItem(QStringList(tentativeName));
     item->setData(0,Qt::UserRole, QVariant(QMetaType::VoidStar, &t));
     tasksTree->addTopLevelItem(item);
+    m_changedTask=true;
 }
 
 void Sak::populateTasks()
 {
     tasksTree->clear();
 
-    QHash<QString, Task>::iterator itr = m_tasks.begin(), end=m_tasks.end();
+    QHash<QString, Task>::iterator itr = m_editedTasks.begin(), end=m_editedTasks.end();
     for(; itr!=end; itr++) {
         Task& t(itr.value());
         t.checkConsistency();
@@ -642,6 +652,19 @@ void Sak::populateTasks()
     }
 }
 
+void Sak::saveTaskChanges()
+{
+    if (m_changedTask) {
+        commitCurrentTask();
+        if ( QMessageBox::question ( 0, "Task list changed", "Task list has changed: do you want to save changes?", QMessageBox::Save | QMessageBox::Discard,  QMessageBox::Discard) == QMessageBox::Save ) {
+            m_tasks = m_editedTasks;
+        } else m_editedTasks = m_tasks; //. undo changes
+        m_changedTask=false;
+        selectedStartDate(QDate());
+        populateTasks();
+    }
+}
+
 void Sak::selectColor() {
     if (tasksTree->selectedItems().isEmpty()) return;
 
@@ -660,10 +683,11 @@ void Sak::selectColor() {
         fgColorButton->setPalette(p);
         bgColorButton->setPalette(p);
     }
+    m_changedTask=true;
 
 }
 
-bool Sak::settingsEventFilter(QEvent* e)
+bool Sak::taskTreeEventFilter(QEvent* e)
 {
     if (e->type() == QEvent::ContextMenu) {
         QContextMenuEvent* me = dynamic_cast<QContextMenuEvent*>(e);
@@ -674,21 +698,37 @@ bool Sak::settingsEventFilter(QEvent* e)
         QKeyEvent* ke = dynamic_cast<QKeyEvent*>(e);
         if (!ke) return false;
         if ( (ke->key() != Qt::Key_Delete && ke->key() != Qt::Key_Backspace) ) return false;
-        // remove file from disk
-        QDir dir(QFileInfo(QSettings("ZanzaSoft", "SAK").fileName()).dir());
-        dir.cd("SakTasks");
-        QFile file(dir.filePath(currentTask) + ".xml");
-        if ( ! QMessageBox::warning(0, "Permanentely delating task " + currentTask, QString("Do you want to proceed to permanentely delete task " + currentTask + "?") ) ) {
-            return true;
+        if (currentSubtask!="") {
+            QMessageBox whatToDo(QMessageBox::Warning, "Deleting subtask", "Deleting subtask " + currentSubtask + " of task " + currentTask);
+            QPushButton* moveHitsToParentButton = whatToDo.addButton("Move hits to task " + currentTask, QMessageBox::AcceptRole);
+            QPushButton* removeHitsButton = whatToDo.addButton("Remove hits", QMessageBox::AcceptRole);
+            QPushButton* cancelButton = whatToDo.addButton("Cancel", QMessageBox::RejectRole);
+            whatToDo.setDefaultButton(cancelButton);
+            whatToDo.exec();
+            if ( whatToDo.clickedButton() == cancelButton) return true;
+            if (m_editedTasks.find(currentTask) == m_editedTasks.end()) return true;
+            m_changedTask=true;
+            Task& t(m_editedTasks[currentTask]);
+            t.subTasks.take(currentSubtask);
+            if (whatToDo.clickedButton() == removeHitsButton) {
+                t.hits.take(currentSubtask);
+            } else if (whatToDo.clickedButton() == moveHitsToParentButton) {
+                QList<Task::Hit> sorter(t.hits.take(""));
+                sorter << t.hits.take(currentSubtask);
+                qStableSort(sorter.begin(), sorter.end());
+                t.hits[""] = sorter;
+            }
+        } else {
+            // remove file from disk
+            m_changedTask=true;
+            m_editedTasks.remove(currentTask);
         }
-        file.remove();
-        m_tasks.remove(currentTask);
-        QList<QTreeWidgetItem*> selected = tasksTree->selectedItems();
-        if (selected.isEmpty()) return false;
-        foreach(QTreeWidgetItem* ii, selected)
-            tasksTree->takeTopLevelItem(tasksTree->indexOfTopLevelItem (ii));
-        selectedTask();
+        tasksTree->clear();
+        populateTasks();
+        selectedStartDate(QDate());
         return true;
+    } else if (e->type() == QEvent::Hide) {
+        saveTaskChanges();
     }
     return false;
 }
@@ -696,21 +736,22 @@ bool Sak::settingsEventFilter(QEvent* e)
 
 void Sak::commitCurrentTask()
 {
+    m_changedTask=true;
     if (currentSubtask.isEmpty()) {
         QString currentTitle = taskTitleEditor->text();
-        // backup data
         if (!currentTitle.isEmpty()) {
-            if (currentTitle != currentTask && m_tasks.contains(currentTitle)) {
-                QMessageBox::warning(0, "Conflict in task names", "Conflict in task names");
-                taskTitleEditor->setText(currentTitle);
-                return;
-            } else if (m_tasks.contains(currentTask)) {
-                m_tasks[currentTitle] = m_tasks.take(currentTask);
-                m_tasks[currentTitle].title = currentTitle;
-            } else return;
+            if (currentTitle != currentTask) {
+                if (m_editedTasks.contains(currentTitle)) {
+                    QMessageBox::warning(0, "Conflict in task names", "Conflict in task names: current task " + currentTask + ", edited title " + currentTitle);
+                    taskTitleEditor->setText(currentTask);
+                    return;
+                } else if (m_editedTasks.contains(currentTask)) {
+                    m_editedTasks[currentTitle] = m_editedTasks.take(currentTask);
+                    m_editedTasks[currentTitle].title = currentTitle;
+                }
+            }
         } else return;
-
-        Task& t = m_tasks[currentTitle];
+        Task& t = m_editedTasks[currentTitle];
         t.bgColor = bgColorButton->palette().color(QPalette::Button);
         t.fgColor = fgColorButton->palette().color(QPalette::ButtonText);
         QList<QTreeWidgetItem *> items =  tasksTree->findItems(currentTask,Qt::MatchExactly,0);
@@ -725,23 +766,25 @@ void Sak::commitCurrentTask()
         if (dueEditor->date() != dueEditor->minimumDate())
             t.dueDate = dueEditor->date();
         t.estimatedHours = estimatedHoursEditor->value();
+        currentTask=currentTitle;
     } else { // subtask edited
-        if (!m_tasks.contains(currentTask)) return;
-        Task& t(m_tasks[currentTask]);
+        if (!m_editedTasks.contains(currentTask)) return;
+        Task& t(m_editedTasks[currentTask]);
         QString currentTitle = taskTitleEditor->text();
         // backup data
         if (!currentTitle.isEmpty()) {
-            if (currentTitle != currentSubtask && t.subTasks.contains(currentTitle)) {
-                QMessageBox::warning(0, "Conflict in subtask names", "Conflict in subtask names");
-                taskTitleEditor->setText(currentTitle);
-                return;
-            } else if (t.subTasks.contains(currentSubtask)) {
-                t.subTasks[currentTitle] = t.subTasks.take(currentSubtask);
-                t.subTasks[currentTitle].title = currentTitle;
-                t.hits[currentTitle] = t.hits.take(currentSubtask);
-            } else return;
+            if (currentTitle != currentSubtask) {
+                if (t.subTasks.contains(currentTitle)) {
+                    QMessageBox::warning(0, "Conflict in subtask names", "Conflict in subtask names");
+                    taskTitleEditor->setText(currentSubtask);
+                    return;
+                } else if (t.subTasks.contains(currentSubtask)) {
+                    t.subTasks[currentTitle] = t.subTasks.take(currentSubtask);
+                    t.subTasks[currentTitle].title = currentTitle;
+                    t.hits[currentTitle] = t.hits.take(currentSubtask);
+                }
+            }
         } else return;
-
         Task::SubTask& st = t.subTasks[currentTitle];
         st.bgColor = bgColorButton->palette().color(QPalette::Button);
         st.fgColor = fgColorButton->palette().color(QPalette::ButtonText);
@@ -757,6 +800,7 @@ void Sak::commitCurrentTask()
                 }
             }
         }
+        currentSubtask = currentTitle;
     }
 }
 
@@ -773,7 +817,6 @@ void Sak::selectedTask()
         estimatedHoursEditor->setEnabled(false);
         return;
     }
-    commitCurrentTask();
 
     QTreeWidgetItem* selectedItem = tasksTree->selectedItems().first();
     QTreeWidgetItem* parentItem = selectedItem->parent();
@@ -796,10 +839,12 @@ void Sak::selectedTask()
 
 
     if (!parentItem) { // editing a task
-        if (!m_tasks.contains(tt)) return;
-        const Task& t = m_tasks[tt];
+        if (!m_editedTasks.contains(tt)) return;
+        const Task& t = m_editedTasks[tt];
         taskPixmapViewer->setPixmap(t.icon);
+        taskTextEditor->blockSignals(true);
         taskTextEditor->setPlainText(t.description);
+        taskTextEditor->blockSignals(false);
         taskTitleEditor->setText(t.title);
         QPalette p;
         p.setColor(QPalette::Button, t.bgColor);
@@ -812,8 +857,8 @@ void Sak::selectedTask()
         currentTask = t.title;
         currentSubtask = "";
     } else {
-        if (!m_tasks.contains(parentItem->text(0))) return;
-        const Task& t = m_tasks[parentItem->text(0)];
+        if (!m_editedTasks.contains(parentItem->text(0))) return;
+        const Task& t = m_editedTasks[parentItem->text(0)];
         if (!t.subTasks.contains(tt)) return;
         const Task::SubTask& st = t.subTasks[tt];
         taskTextEditor->setPlainText(st.description);
@@ -832,15 +877,16 @@ void Sak::selectedTask()
 void Sak::doubleClickedTask(QTreeWidgetItem* i, int column)
 {
     if (column == 1) {
+        m_changedTask=true;
         if (i->parent() == 0) {
-            QHash<QString, Task>::iterator itr = m_tasks.find(i->text(0));
-            Q_ASSERT(itr != m_tasks.end());
+            QHash<QString, Task>::iterator itr = m_editedTasks.find(i->text(0));
+            Q_ASSERT(itr != m_editedTasks.end());
             bool& active ( itr.value().active );
             active = !active;
             i->setIcon(column, active ? QIcon(":/images/active.png") : QIcon(":/images/inactive.png"));
         } else {
-            QHash<QString, Task>::iterator itr = m_tasks.find(i->parent()->text(0));
-            Q_ASSERT(itr != m_tasks.end());
+            QHash<QString, Task>::iterator itr = m_editedTasks.find(i->parent()->text(0));
+            Q_ASSERT(itr != m_editedTasks.end());
             bool& active ( itr.value().subTasks[i->text(0)].active );
             active = !active;
             i->setIcon(column, active ? QIcon(":/images/active.png") : QIcon(":/images/inactive.png"));
@@ -978,7 +1024,7 @@ void Sak::workingOnTask(const QString& taskName, const QString& subTask)
             // update subtask if new added!
             t.updateSubTasks();
 
-            // update statistics
+            // update statistics !!!!
             m_editedTasks = m_tasks;
             QMetaObject::invokeMethod(this, "selectedStartDate", Qt::QueuedConnection, Q_ARG(QDate, cal1->selectedDate()));
         }
@@ -1513,12 +1559,14 @@ void Sak::setupSettingsWidget()
     taskTextEditor = new QTextEdit;
     taskTextEditor->setFixedHeight(100);
     taskTextEditor->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    
+    connect(taskTextEditor, SIGNAL(textChanged()), this, SLOT(commitCurrentTask()));
+
     
     taskTitleEditor = new QLineEdit;
     taskTitleEditor->setFixedHeight(20);
     taskTitleEditor->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    
+    connect(taskTitleEditor, SIGNAL(editingFinished()), this, SLOT(commitCurrentTask()));
+
     taskPixmapViewer = new PixmapViewer;
     mainLayout->addWidget(tasksTree, 2);
     QHBoxLayout* detailsLayout = new QHBoxLayout;
@@ -1538,7 +1586,9 @@ void Sak::setupSettingsWidget()
     datesLayout->addWidget(estimatedHoursEditor);
     editsLayout->addLayout(datesLayout);
     detailsLayout->addLayout(editsLayout);
-    
+    connect(dueEditor, SIGNAL(editingFinished()), this, SLOT(commitCurrentTask()));
+    connect(estimatedHoursEditor,SIGNAL(editingFinished()), this, SLOT(commitCurrentTask()));
+
     QVBoxLayout* colorsLayout = new QVBoxLayout;
     bgColorButton = new QPushButton("bg\ncolor");
     bgColorButton->setToolTip("Background color");

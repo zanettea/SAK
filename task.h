@@ -27,6 +27,9 @@ struct Task
             , duration(d) {}
         QDateTime timestamp;
         unsigned int duration;
+        bool operator<(const Hit& o) const {
+            return timestamp < o.timestamp;
+        }
     };
 
     Task() : estimatedHours(0), bgColor(Qt::white), fgColor(Qt::black), active(true), totHours(0) {}

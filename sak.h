@@ -38,20 +38,20 @@ public:
 protected:
     void timerEvent(QTimerEvent* e);
     bool eventFilter(QObject* obj, QEvent* e);
-    bool settingsEventFilter(QEvent* e);
+    bool taskTreeEventFilter(QEvent* e);
     bool hitsListEventFilter(QEvent* e);
-    void commitCurrentTask();
 public slots:
     void start();
     void stop();
     Task loadTaskFromFile(const QString& filePath);
     void flush();
-    void open();
+    void open(const QStringList& filePaths = QStringList());
 //    void saveAsDb();
     void exportDbCsv();
     void sendByEmail();
     void logInGmail();
     void saveToGmail();
+    void importFromGmail();
 protected slots:
     void init();
     void destroy();
@@ -59,6 +59,8 @@ protected slots:
     void addDefaultTask();
     void exportHits();
     void populateTasks();
+    void commitCurrentTask();
+    void saveTaskChanges();
     void saveHitChanges();
     void selectedTask();
     void doubleClickedTask(QTreeWidgetItem* i, int column);
@@ -98,7 +100,7 @@ private:
     unsigned int m_currentInterval;
 
     bool m_previewing;
-    bool m_changedHit;
+    bool m_changedHit, m_changedTask;
     bool m_subtaskView;
     static int taskCounter;
 

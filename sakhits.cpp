@@ -194,8 +194,8 @@ void Sak::addDefaultHit()
     QTreeWidgetItem* i = new QTreeWidgetItem;
     Task::Hit p(QDateTime::currentDateTime(), 0);
     i->setText(0, p.timestamp.toString(DATETIMEFORMAT));
-    i->setText(1, m_tasks.begin().key());
-    i->setIcon(1, m_tasks.begin().value().icon);
+    i->setText(1, m_editedTasks.begin().key());
+    i->setIcon(1, m_editedTasks.begin().value().icon);
     i->setSizeHint(0, QSize(32, 32));
     i->setText(3, QString("%1").arg(p.duration));
     i->setFlags(i->flags() | Qt::ItemIsEditable);
@@ -268,9 +268,9 @@ void Sak::saveHitChanges()
     if (m_changedHit) {
         if ( QMessageBox::question ( 0, "Hit list changed", "Hit list has changed: do you want to save changes?", QMessageBox::Save | QMessageBox::Discard,  QMessageBox::Discard) == QMessageBox::Save ) {
             m_tasks = m_editedTasks;
-        }
+        } else m_editedTasks = m_tasks; // undo changes
         m_changedHit=false;
-        populateHitsList(createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
+        selectedStartDate(QDate());
         populateTasks();
     }
 }
@@ -294,16 +294,21 @@ bool Sak::hitsListEventFilter(QEvent* e)
         return true;
     } else if (e->type() == QEvent::Hide) {
         saveHitChanges();
-    } /*else if (e->type() == QEvent::Show) {
+    }/* else if (e->type() == QEvent::Show) {
         m_editedTasks = m_tasks;
-        populateHitsList(createHitsList(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate())));
+        selectedStartDate(QDate());
     }*/
     return false;
 }
 
 
-void Sak::selectedStartDate(const QDate& date)
+void Sak::selectedStartDate(const QDate& _date)
 {
+    QDate date = _date;
+    if (!date.isValid()) {
+        date = cal1->selectedDate();
+    }
+
     if (sender() != cal1) {
         cal1->setSelectedDate(date);
     }
@@ -321,8 +326,12 @@ void Sak::selectedStartDate(const QDate& date)
         hitsTimeline->setPeriod(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate()));
 }
 
-void Sak::selectedEndDate(const QDate& date)
+void Sak::selectedEndDate(const QDate& _date)
 {
+    QDate date = _date;
+    if (!date.isValid())
+        date = cal1->selectedDate();
+
     if (sender() != cal2) {
         cal2->setSelectedDate(date);
     }
