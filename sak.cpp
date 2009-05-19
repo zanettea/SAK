@@ -61,8 +61,9 @@ class GView : public QGraphicsView
 };
 
 
-
 //BEGIN Sak basic >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+static bool grabbed=false;
 
 Sak::Sak(QObject* parent)
     : QObject(parent)
@@ -962,6 +963,7 @@ void Sak::clearView()
     m_previewing = false;
     m_view->releaseKeyboard();
 #if defined(Q_WS_X11)
+    grabbed=false;
     X11::XSetInputFocus((X11::Display*)QX11Info::display(), X11::CurrentFocusWindow, X11::CurrentRevertToReturn, CurrentTime);
     X11::XFlush((X11::Display*)QX11Info::display());
 #endif
@@ -1181,8 +1183,11 @@ QRect Layouting( const QList<SakWidget*>& sortedWidgets)
 void Sak::grabKeyboard()
 {
 #if defined(Q_WS_X11)
-    // make sure the application has focus to accept keyboard inputs
-    XGetInputFocus((X11::Display*)QX11Info::display(), &X11::CurrentFocusWindow, &X11::CurrentRevertToReturn);
+    if (!grabbed) {
+        // make sure the application has focus to accept keyboard inputs
+        XGetInputFocus((X11::Display*)QX11Info::display(), &X11::CurrentFocusWindow, &X11::CurrentRevertToReturn);
+        grabbed=true;
+    }
     X11::XSetInputFocus((X11::Display*)QX11Info::display(), QX11Info::appRootWindow(QX11Info::appScreen()),  RevertToParent, CurrentTime);
     X11::XFlush((X11::Display*)QX11Info::display());
 #endif
