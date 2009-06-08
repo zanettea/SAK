@@ -234,7 +234,6 @@ void Task::updateSubTasks()
 
 bool Task::checkConsistency()
 {
-    QList<HitElement> hitlist;
     QHash<QString, QList<Task::Hit > >::const_iterator hitr = hits.begin(), hend = hits.end();
     totHours = 0;
     totOverestimation = 0;
@@ -242,6 +241,7 @@ bool Task::checkConsistency()
     updateSubTasks();
     while(hitr != hend) {
         const QList<Task::Hit>& l(hitr.value());
+        QList<HitElement> hitlist;
         for(int i=0; i<l.count(); i++) {
             hitlist << HitElement(this, hitr.key(), l[i].timestamp, l[i].duration);
         }
@@ -271,9 +271,9 @@ bool Task::checkConsistency()
 double HitElement::overestimations(const QList<HitElement>& hits, QVector<double>& overestimation, double& totOverestimation)
 {
     QList<HitElement> sortedList(hits);
+    double totHours = 0;
     qSort(sortedList);
 
-    double totHours = 0;
     QDateTime t = QDateTime::currentDateTime();
     overestimation.resize(sortedList.count());
     totOverestimation=0;

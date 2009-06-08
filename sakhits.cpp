@@ -251,6 +251,7 @@ QMap<double,QPair<Task*, QString> > Sak::createSummaryList(const QList<HitElemen
     QHash<QPair<Task*, QString>, double> summaryMap;
     foreach(const HitElement& hit, hits) {
         summaryMap[QPair<Task*, QString>(hit.task, hit.subtask)] += Task::hours(hit.duration);
+        summaryMap[QPair<Task*, QString>(hit.task, "")] += Task::hours(hit.duration);
     }
     QMap<double, QPair<Task*, QString> > summaryOrderedMap;
     QHash<QPair<Task*, QString>, double>::const_iterator itr = summaryMap.begin();
@@ -510,7 +511,8 @@ void Sak::populateHitsList(const QList<HitElement>& hits, QTreeWidget* theHitsLi
                 topLevels[itr.value().first] = w;
             }
             topLevel = topLevels[itr.value().first];
-            topLevel->setText(1, QString("%1").arg(topLevel->text(1).toInt() + itr.key(), 4, 'f', 2, ' '));
+            if (itr.value().second == "")
+                topLevel->setText(1, QString("%1").arg(topLevel->text(1).toInt() + itr.key(), 4, 'f', 2, ' '));
             if (!itr.value().second.isEmpty()) {
                 QTreeWidgetItem* w = new QTreeWidgetItem(QTreeWidgetItem::UserType);
                 w->setText(0, itr.value().second);

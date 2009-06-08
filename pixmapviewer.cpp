@@ -31,13 +31,18 @@ void PixmapViewer::paintEvent(QPaintEvent* )
 void PixmapViewer::mousePressEvent(QMouseEvent* e)
 {
     if (e->buttons()) {
-        QString file = QFileDialog::getOpenFileName(0, "Select an image");
-        QPixmap tmp;
-        if (!file.isEmpty()) {
-            if (tmp.load ( file ) ) {
-                setPixmap(tmp);
-            } else {
-                QMessageBox::warning(0, "Failure loading image", QString("Failed load image file %1").arg(file));
+        if (e->buttons() & Qt::RightButton) {
+            if ( QMessageBox::warning(0, "Unset image?", QString("Unset image?")) ) {
+                setPixmap(QPixmap());
+            }
+        } else {
+            QString file = QFileDialog::getOpenFileName(0, "Select an image");
+            QPixmap tmp;
+            if (!file.isEmpty()) {
+                if (tmp.load ( file ) ) {
+                    setPixmap(tmp);
+                    QMessageBox::warning(0, "Failure loading image", QString("Failed load image file %1").arg(file));
+                }
             }
         }
     }

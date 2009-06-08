@@ -741,6 +741,7 @@ void Sak::commitCurrentTask()
         Task& t = m_editedTasks[currentTitle];
         t.bgColor = bgColorButton->palette().color(QPalette::Button);
         t.fgColor = fgColorButton->palette().color(QPalette::ButtonText);
+        t.icon = taskPixmapViewer->pixmap();
         QList<QTreeWidgetItem *> items =  tasksTree->findItems(currentTask,Qt::MatchExactly,0);
         foreach(QTreeWidgetItem* ii, items) {
             ii->setText(0, currentTitle);
@@ -1588,6 +1589,7 @@ void Sak::setupSettingsWidget()
     QHBoxLayout* detailsLayout = new QHBoxLayout;
     QVBoxLayout* editsLayout = new QVBoxLayout;
     detailsLayout->addWidget(taskPixmapViewer);
+    connect(taskPixmapViewer, SIGNAL(changed()), this, SLOT(commitCurrentTask()));
     editsLayout->addWidget(taskTitleEditor);
     editsLayout->addWidget(taskTextEditor);    
     QHBoxLayout* datesLayout = new QHBoxLayout;
