@@ -15,7 +15,6 @@ public:
     void setPixmap(const QPixmap& p) {
         m_p = p.scaled(qMin(p.width(), 400),qMin(p.height(),400),Qt::KeepAspectRatio);
         update();
-        emit changed();
     }
     QPixmap pixmap() const { return m_p; }
     void paintEvent(QPaintEvent* );

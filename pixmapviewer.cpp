@@ -34,6 +34,7 @@ void PixmapViewer::mousePressEvent(QMouseEvent* e)
         if (e->buttons() & Qt::RightButton) {
             if ( QMessageBox::warning(0, "Unset image?", QString("Unset image?")) ) {
                 setPixmap(QPixmap());
+                emit changed();
             }
         } else {
             QString file = QFileDialog::getOpenFileName(0, "Select an image");
@@ -42,6 +43,7 @@ void PixmapViewer::mousePressEvent(QMouseEvent* e)
                 if (tmp.load ( file ) ) {
                     setPixmap(tmp);
                     QMessageBox::warning(0, "Failure loading image", QString("Failed load image file %1").arg(file));
+                    emit changed();
                 }
             }
         }
