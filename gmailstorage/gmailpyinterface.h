@@ -3,8 +3,9 @@
 
 #include <QString>
 #include <QStringList>
+#include "gmailinterface.h"
 
-class GmailPyInterface
+class GmailPyInterface : public GmailInterface
 {
 public:
     GmailPyInterface();
@@ -17,9 +18,8 @@ public:
     QStringList fetchLatestTasks() { return QStringList(); };
 private:
     struct _object* m_gs;
-    struct _object* m_user;
-    struct _object* m_pass;
-    class sendByEmailAction;
+    struct _object* m_userObj;
+    struct _object* m_passObj;
 };
 
 #endif // GMAILPYINTERFACE_H

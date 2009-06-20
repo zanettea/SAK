@@ -20,6 +20,8 @@ class SAKGmailStorage:
         return self.error
 
     def login(self, user, passwd):
+#        self.setError("Unknown error logging in as " % (user) )
+        self.user = user
         self.ga = libgmail.GmailAccount(user, passwd)
         try:
             self.ga.login()
@@ -31,14 +33,20 @@ class SAKGmailStorage:
             return 0;
         else:
             self.setError("Log in successful.\n")
+            self.user = user
             return 1
         self.setError("Login failed. (Wrong username/password?)\n");
         return 0;
 
 
     def store(self, filePath, subject, label):
-        msg = libgmail.GmailComposedMessage(to="", subject=subject, body="", filenames=[filePath]) 
-        draftMsg = self.ga.sendMessage(msg, asDraft = True) 
+#        self.setError("Unknown error storing file %s in label %s " % (filePath, label) )
+        msg = libgmail.GmailComposedMessage(to=self.user, subject=subject, body="SAK backup!", filenames=[filePath]) 
+        try:
+            draftMsg = self.ga.sendMessage(msg, asDraft = True) 
+        except libgmail.GmailSendError, error:
+            self.setError("Error sending file `%s` in `%s`: %s" % (filePath, label, error) )
+            return 0
         if draftMsg and label: 
             draftMsg.addLabel(label) 
         if draftMsg:
@@ -96,5 +104,6 @@ class SAKGmailStorage:
         print "Done."
 
 #ga = SAKGmailStorage();
-#ga.login("zanettea", "bear4ever");
+#ga.login("zanetteatest", "test4test");
+#ga.store("/tmp/prova.txt", "prova", "SAK");
 #ga.fetchLatest();

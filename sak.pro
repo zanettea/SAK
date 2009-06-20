@@ -7,9 +7,8 @@ DEPENDPATH += .
 INCLUDEPATH += .
 CONFIG += qt \
     debug
-QT += opengl
+QT += opengl network
 
-LIBS += -lpython2.5
 
 # Input
 HEADERS += sak.h \
@@ -21,7 +20,7 @@ HEADERS += sak.h \
     task.h \
     saksubwidget.h \
     timeline.h \
-    gmailpyinterface.h
+    gmailstorage/gmailinterface.h gmailstorage/gmailpyinterface.h
 SOURCES += main.cpp \
     sak.cpp \
     sakhits.cpp \
@@ -32,7 +31,16 @@ SOURCES += main.cpp \
     saksubwidget.cpp \
     backupper.cpp \
     timeline.cpp \
-    gmailpyinterface.cpp
+
+contains(DEFINES, USELIBGMAIL) {
+    LIBS += -lpython2.5
+    HEADERS += gmailstorage/gmailpyinterface.h
+    SOURCES += gmailstorage/gmailpyinterface.cpp
+} else {
+    HEADERS += gmailstorage/mailsender.h   gmailstorage/gmailmyinterface.h
+    SOURCES += gmailstorage/mailsender.cpp   gmailstorage/gmailmyinterface.cpp
+}
+    
 
 
 RESOURCES += sak.qrc

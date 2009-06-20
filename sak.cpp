@@ -17,8 +17,11 @@
 #include "timeline.h"
 #include "backupper.h"
 #include "piechart.h"
-#include "gmailpyinterface.h"
-
+#ifdef USELIBGMAIL
+#include "gmailstorage/gmailpyinterface.h"
+#else
+#include "gmailstorage/gmailmyinterface.h"
+#endif
 
 //END Task <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 

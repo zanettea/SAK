@@ -10,8 +10,8 @@
 
 GmailPyInterface::GmailPyInterface()
 {
-    m_user = 0;
-    m_pass = 0;
+    m_userObj = 0;
+    m_passObj = 0;
     m_gs = 0;
 
     Py_Initialize();
@@ -44,8 +44,8 @@ GmailPyInterface::~GmailPyInterface()
 
 bool GmailPyInterface::forceLogin()
 {
-    m_user = 0;
-    m_pass = 0;
+    m_userObj = 0;
+    m_passObj = 0;
     login();
 }
 
@@ -53,7 +53,7 @@ bool GmailPyInterface::login()
 {
     bool goon=true;
     while(goon) {
-        if (m_user == 0 || m_pass == 0) {
+        if (m_userObj == 0 || m_passObj == 0) {
             QDialog d;
             d.setModal(true);
             QLineEdit* user(new QLineEdit);
@@ -79,16 +79,16 @@ bool GmailPyInterface::login()
             d.exec();
             if (d.result() == QDialog::Accepted) {
                 if (user->text().isEmpty() || pass->text().isEmpty()) continue;
-                m_user = PyString_FromString(user->text().toAscii());
-                m_pass = PyString_FromString(pass->text().toAscii());
+                m_userObj = PyString_FromString(user->text().toAscii());
+                m_passObj = PyString_FromString(pass->text().toAscii());
             } else return false;
         }
-        PyObject* result = PyObject_CallMethodObjArgs(m_gs, PyString_FromString("login"), m_user, m_pass, 0);
+        PyObject* result = PyObject_CallMethodObjArgs(m_gs, PyString_FromString("login"), m_userObj, m_passObj, 0);
         if (!result || !PyObject_IsTrue(result)) {
             PyObject* error = PyObject_CallMethod(m_gs, "getError", 0);
             QMessageBox::warning(0, "Error!", PyString_AsString(error));
-            m_user = 0;
-            m_pass = 0;
+            m_userObj = 0;
+            m_passObj = 0;
         } else return true;
     }
     return false;
