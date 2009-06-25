@@ -41,6 +41,8 @@ static int CurrentRevertToReturn;
 }
 #endif
 
+static int grabbed; 
+
 
 class GView : public QGraphicsView
 {
