@@ -13,7 +13,7 @@ public:
     virtual void storeTaskFiles(const QStringList& filePaths) = 0;
     virtual bool login() = 0;
     // clear cached data
-    virtual bool forceLogin() { m_user=""; m_pass=""; login(); }
+    virtual bool forceLogin() { m_user=""; m_pass=""; login(); return true; }
     virtual QStringList fetchLatestTasks() { return QStringList(); }
 protected:
     QString m_user;

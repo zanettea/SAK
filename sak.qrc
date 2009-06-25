@@ -9,5 +9,6 @@
         <file>images/away.png</file>
         <file>images/hourglass.png</file>
         <file>gmailstorage/sakgmailstorage.py</file>
+        <file>images/whip_vale.png</file>
     </qresource>
 </RCC>

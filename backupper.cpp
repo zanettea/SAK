@@ -7,7 +7,7 @@
 
 Backupper::Backupper() {
     // search for backup dir
-    QString path = QFileInfo(QSettings("ZanzaSoft", "SAK").fileName()).path() + QDir::separator() + "sakbcks";
+    QString path = QFileInfo(QSettings(QSettings::IniFormat, QSettings::UserScope, "ZanzaSoft", "SAK").fileName()).path() + QDir::separator() + "sakbcks";
     m_dir =QDir(path);
     m_dir.mkpath(path);
     m_dir.cd(path);
@@ -28,7 +28,7 @@ Backupper::Backupper() {
 void Backupper::doCyclicBackup() {
     // build the list of files to be backupped
     QStringList backupPaths;
-    QSettings settings("ZanzaSoft", "SAK");
+    QSettings settings(QSettings::IniFormat, QSettings::UserScope, "ZanzaSoft", "SAK");
     backupPaths << m_dir.filePath(QFileInfo(settings.fileName()).baseName());
 
     QDir saveDir(QFileInfo(settings.fileName()).dir());
@@ -69,7 +69,7 @@ void Backupper::doCyclicBackup() {
 
 Incremental::Incremental() {
     // search for backup dir
-    QString path = QFileInfo(QSettings("ZanzaSoft", "SAK").fileName()).path() + QDir::separator() + "sakincr";
+    QString path = QFileInfo(QSettings(QSettings::IniFormat, QSettings::UserScope, "ZanzaSoft", "SAK").fileName()).path() + QDir::separator() + "sakincr";
     m_dir =QDir(path);
     m_dir.mkpath(path);
     m_dir.cd(path);

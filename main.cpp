@@ -57,7 +57,11 @@ int main(int argc, char** argv)
     }
     lockFile.open(QIODevice::ReadWrite);
 
+#ifdef CENSORED
+    QPixmap px(":/images/active.png");
+#else
     QPixmap px(":/images/splash.png");
+#endif
     MySplashScreen* splash = new MySplashScreen(px);
     splash->setMask(px.createMaskFromColor(QColor(0,0,0,0), Qt::MaskInColor));
     splash->show();

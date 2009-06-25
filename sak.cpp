@@ -66,8 +66,6 @@ class GView : public QGraphicsView
 
 //BEGIN Sak basic >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-static bool grabbed=false;
-
 Sak::Sak(QObject* parent)
     : QObject(parent)
     , m_timerId(0)
@@ -78,9 +76,6 @@ Sak::Sak(QObject* parent)
     , m_subtaskView(false)
 {
     summaryList = hitsList = 0;
-#ifndef Q_OS_LINUX
-    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, "%APPDATA%");
-#endif
     init();
 
     if (QCoreApplication::arguments().contains("--clear")) {
@@ -111,7 +106,7 @@ void Sak::init()
     m_gmail = new GmailPyInterface;
 
     // load the data model
-    QSettings settings("ZanzaSoft", "SAK");
+    QSettings settings(QSettings::IniFormat, QSettings::UserScope, "ZanzaSoft", "SAK");
     QByteArray tasksArray = settings.value("tasks").toByteArray();
     QDataStream stream(&tasksArray, QIODevice::ReadWrite);
     stream.setVersion(QDataStream::Qt_4_3);
@@ -301,7 +296,7 @@ void Sak::flush()
 
     if (!m_settings) return;
     m_backupper->doCyclicBackup();
-    QSettings settings("ZanzaSoft", "SAK");
+    QSettings settings(QSettings::IniFormat, QSettings::UserScope, "ZanzaSoft", "SAK");
 //    QByteArray tasksArray;
 //    QDataStream stream(&tasksArray, QIODevice::ReadWrite);
 //    stream.setVersion(QDataStream::Qt_4_0);
@@ -358,7 +353,7 @@ void Sak::flush()
 //    QFile file(fileName);
 //    file.remove();
 //    flush();
-//    QSettings settings("ZanzaSoft", "SAK");
+//    QSettings settingsQSettings::IniFormat, QSettings::UserScope, ("ZanzaSoft", "SAK");
 //    QFile file1(settings.fileName());
 //    if (!file1.copy(fileName)) {
 //        qWarning() << "Error copying " << settings.fileName() << " to " << fileName << file1.errorString();
@@ -399,7 +394,7 @@ void Sak::saveToGmail()
 {
     if (!m_settings) return;
     flush();
-    QSettings settings("ZanzaSoft", "SAK");
+    QSettings settings(QSettings::IniFormat, QSettings::UserScope, "ZanzaSoft", "SAK");
 
     QDir saveDir(QFileInfo(settings.fileName()).dir());
     saveDir.mkdir("SakTasks");
@@ -428,7 +423,7 @@ void Sak::open(const QStringList& _fileNames)
             QMessageBox::warning(0, "Cannot find task", QString("Cannot find task file %1").arg(fileName));
         }
 
-        QSettings settings("ZanzaSoft", "SAK");
+        QSettings settings(QSettings::IniFormat, QSettings::UserScope, "ZanzaSoft", "SAK");
         QDir saveDir(QFileInfo(settings.fileName()).dir());
         saveDir.mkdir("SakTasks");
         saveDir.cd("SakTasks");
@@ -1523,7 +1518,7 @@ void Sak::setupSettingsWidget()
     durationLabel = new QLabel(tr("Interval:"));
     durationLabel1 = new QLabel(tr("(effective only after restart)"));
     
-    QSettings settings("ZanzaSoft", "SAK");
+    QSettings settings(QSettings::IniFormat, QSettings::UserScope, "ZanzaSoft", "SAK");
     durationSpinBox = new QSpinBox;
     durationSpinBox->setSingleStep(1);
     durationSpinBox->setRange(1, 1440);

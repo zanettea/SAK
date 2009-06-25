@@ -4,7 +4,11 @@ SakMessageItem::SakMessageItem(const QString& message) : QGraphicsItem(0) {
     m_rect = QRectF(QPointF(0, 0), QSizeF(800, 200));
 
     setAcceptsHoverEvents(true);
+#ifdef CENSORED
+    QPixmap p(":/images/whip_vale.png");
+#else
     QPixmap p(":/images/whip.png");
+#endif
     p = p.scaled(200, 600, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     m_p=new QGraphicsPixmapItem(p,this);
     m_p->setPos(0,0);
