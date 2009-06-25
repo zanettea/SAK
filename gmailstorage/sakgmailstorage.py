@@ -104,6 +104,6 @@ class SAKGmailStorage:
         print "Done."
 
 #ga = SAKGmailStorage();
-#ga.login("zanetteatest", "test4test");
+#ga.login("zanetteatest", "*********");
 #ga.store("/tmp/prova.txt", "prova", "SAK");
 #ga.fetchLatest();
