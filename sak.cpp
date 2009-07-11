@@ -1197,6 +1197,10 @@ void Sak::grabKeyboard()
 
 void Sak::popup()
 {
+    // save changes first
+    if (m_changedTask)
+        saveTaskChanges();
+
     m_subtaskView = false;
 
     if (sender() == previewButton) {
