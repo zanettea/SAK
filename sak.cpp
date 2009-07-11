@@ -514,12 +514,11 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
     } else if (obj == hitsList || obj == summaryList) {
         return hitsListEventFilter(e);
     } else if (obj == m_settings && e->type() == QEvent::Close) {
+        if (m_changedTask)
+            saveTaskChanges();
+        if (m_changedHit)
+            saveHitChanges();
         if (trayIcon->isVisible()) {
-            QMessageBox::information(m_settings, tr("Systray"),
-                                     tr("The program will keep running in the "
-                                             "system tray. To terminate the program, "
-                                             "choose <b>Quit</b> in the context menu "
-                                             "of the system tray entry."));
             m_settings->hide();
             e->ignore();
             return true;
@@ -963,7 +962,9 @@ void Sak::clearView()
     m_view->scene()->setSceneRect(QDesktopWidget().geometry());
     m_previewing = false;
     m_view->releaseKeyboard();
+
 #if defined(Q_WS_X11)
+    // restore focus to previous application
     grabbed=false;
     X11::XSetInputFocus((X11::Display*)QX11Info::display(), X11::CurrentFocusWindow, X11::CurrentRevertToReturn, CurrentTime);
     X11::XFlush((X11::Display*)QX11Info::display());
@@ -1185,7 +1186,7 @@ void Sak::grabKeyboard()
 {
 #if defined(Q_WS_X11)
     if (!grabbed) {
-        // make sure the application has focus to accept keyboard inputs
+        // save current focused application
         XGetInputFocus((X11::Display*)QX11Info::display(), &X11::CurrentFocusWindow, &X11::CurrentRevertToReturn);
         grabbed=true;
     }
@@ -1291,12 +1292,7 @@ void Sak::popup()
 
 
 void Sak::popupSubtasks(const QString& taskname) {
-#if defined(Q_WS_X11)
-        // make sure the application has focus to accept keyboard inputs
-        X11::XSetInputFocus((X11::Display*)QX11Info::display(), QX11Info::appRootWindow(QX11Info::appScreen()),  RevertToParent, CurrentTime);
-        X11::XFlush((X11::Display*)QX11Info::display());
-#endif
-
+    grabKeyboard();
 
     m_subtaskView = true;
     killTimer(m_timeoutPopup);

@@ -33,6 +33,8 @@ public:
 private:
     const Task& m_task;
     const Task::SubTask m_subtask;
+    // returns current text
+    QString getMeaningfulText();
 
     QPointF m_position;
     qreal m_scale;
