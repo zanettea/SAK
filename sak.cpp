@@ -533,6 +533,12 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
         if ((ke->modifiers() & Qt::AltModifier) && (ke->modifiers() &  Qt::ControlModifier) ) {
             clearView();
             return true;
+        } else if ( ((ke->modifiers() &  Qt::ControlModifier) && (ke->key() == Qt::Key_Backspace) )
+            || ((ke->modifiers() &  Qt::ControlModifier) && (ke->key() == Qt::Key_Left) )) {
+            if (m_subtaskView) {
+                popup();
+                return true;
+            }
         } else if (m_subtaskView && (ke->key() == Qt::Key_Up) ) {
             scrollSubTasks(-1);
             return true;
@@ -952,6 +958,8 @@ void Sak::timerEvent(QTimerEvent* e)
 void Sak::clearView()
 {
     killTimer(m_timeoutPopup);
+    m_subtaskView=false;
+    m_marker = 0;
 
     if (!m_view) return;
     QGraphicsScene* s = m_view->scene();
@@ -975,6 +983,7 @@ void Sak::clearView()
 void Sak::workingOnTask(const QString& taskName, const QString& subTask)
 {
     if (!m_previewing) {
+
         qDebug() << "Working on " << taskName ;
         if (m_tasks.contains(taskName)) {
             Task& t = m_tasks[taskName];
@@ -1202,6 +1211,24 @@ void Sak::popup()
     if (m_changedTask)
         saveTaskChanges();
 
+    if (m_subtaskView) {
+        // remove subtasks
+        foreach(SakSubWidget* w, m_subwidgets.values()) {
+            w->scene()->removeItem(w);
+            delete w;
+            m_subwidgets.clear();
+        }
+        m_marker->scene()->removeItem(m_marker);
+        delete m_marker;
+
+        // unhide tasks
+        foreach(SakWidget* w, m_widgets.values()) {
+            w->show();
+        }
+        m_subtaskView=false;
+        return;
+    }
+
     m_subtaskView = false;
 
     if (sender() == previewButton) {
@@ -1291,15 +1318,36 @@ void Sak::popup()
 }
 
 
-void Sak::popupSubtasks(const QString& taskname) {
-    grabKeyboard();
+void Sak::popupSubtasks(const QString& _taskname) {
 
-    m_subtaskView = true;
     killTimer(m_timeoutPopup);
 
+    QString taskname = _taskname;
+    if (taskname.isEmpty()) {
+        if ( m_taskSelectionHistory.isEmpty() ) {
+            return;
+        } else {
+            taskname = m_taskSelectionHistory.back();
+        }
+        QString subtaskName;
+        if (!m_subtaskSelectionHistory[taskname].isEmpty()) {
+            subtaskName = m_subtaskSelectionHistory[taskname].back();
+        }
+        workingOnTask(taskname, subtaskName);
+    }
+
+    m_subtaskView = true;
+    grabKeyboard();
+    QRect r = QDesktopWidget().geometry();
+    int w = 500;
+    int h = 40;
+
+
+    // hide tasks to show subtasks
     foreach(SakWidget* w, m_widgets.values()) {
         w->hide();
     }
+
     QHash<QString, Task>::const_iterator itr = m_tasks.find(taskname);
     if (itr == m_tasks.end()) {
         workingOnTask(taskname, "");
@@ -1311,12 +1359,10 @@ void Sak::popupSubtasks(const QString& taskname) {
     QDateTime now(QDateTime::currentDateTime());
     for(; titr != tend; titr++) {
         if (!titr->active) continue;
-        SakSubWidget* test = new SakSubWidget(t, *titr);
-        test->setVisible(true);
-        connect (test, SIGNAL(clicked(const QString&, const QString&)), this, SLOT(workingOnTask(const QString&, const QString&)));
-        connect (test, SIGNAL(focused()), this, SLOT(focusedSubTask()));
-
-
+        SakSubWidget* sw = new SakSubWidget(t, *titr);
+        sw->setGeometry(QRectF(0,0,w,h));
+        connect (sw, SIGNAL(clicked(const QString&, const QString&)), this, SLOT(workingOnTask(const QString&, const QString&)));
+        connect (sw, SIGNAL(focused()), this, SLOT(focusedSubTask()));
 
         QDateTime rank=now;
         QHash< QString, QList< QString > >::const_iterator hhitr = m_subtaskSelectionHistory.find(t.title);
@@ -1333,16 +1379,12 @@ void Sak::popupSubtasks(const QString& taskname) {
                     rank = now.addDays(-999);
             }
         }
-        m_subwidgets.insertMulti( - rank.toTime_t(), test);
+        m_subwidgets.insertMulti( - rank.toTime_t(), sw);
     }
 
     const QList<SakSubWidget*>& values = m_subwidgets.values();
 
 //    QRect messageRect = Layouting((const QList<SakWidget*>&)values);
-
-    QRect r = QDesktopWidget().geometry();
-    int w = 500;
-    int h = 40;
 
     m_subwidgetsIterator = m_subwidgets.begin();
     m_subWidgetRank = 0;
@@ -1353,15 +1395,7 @@ void Sak::popupSubtasks(const QString& taskname) {
     connect (tmpSw, SIGNAL(clicked(const QString&, const QString&)), this, SLOT(workingOnTask(const QString&, const QString&)));
     connect (tmpSw, SIGNAL(focused()), this, SLOT(focusedSubTask()));
 
-
     m_subwidgets.insertMulti(QDateTime::currentDateTime().addDays(999).toTime_t(), tmpSw);
-
-    for(int i=0; i<values.size(); i++) {
-        SakSubWidget* sw = values[i];
-        sw->setGeometry(QRectF(0,0,w,h));
-        m_view->scene()->addItem(sw);
-        sw->show();
-    }
 
     m_subWidgetRank += values.size() != 0;
 
@@ -1375,20 +1409,18 @@ void Sak::popupSubtasks(const QString& taskname) {
     }
 
     // add a marker to highligh current selection
-    QGraphicsEllipseItem* marker = new QGraphicsEllipseItem(r.width()/2 - 280, r.height()/2 - 51, 20,20);
-    marker->setBrush(Qt::red);
-    m_view->scene()->addItem(marker);
-//    QGraphicsItemAnimation* animation(new QGraphicsItemAnimation);
-//    animation->setItem(marker);
-//    QTimeLine *timer = new QTimeLine(5000);
-//    timer->setFrameRange(0, 100);
-//    animation->setTimeLine(timer);
-//    for (int i = 0; i < 200; ++i)
-//        animation->setScaleAt(i / 200.0, (100.0 + i/40.0)/100.0, (100.0 + i/40.0)/100.0);
+    m_marker = new QGraphicsEllipseItem(r.width()/2 - 280, r.height()/2 - 51, 20,20);
+    m_marker->setBrush(Qt::red);
+    m_view->scene()->addItem(m_marker);
+    m_marker->setVisible(true);
+
     layoutSubTasks(m_subwidgets, m_subWidgetRank);
-//    timer->start();
 
-
+    // Finally add subwidgets
+    for(int i=0; i<values.size(); i++) {
+        SakSubWidget* sw = values[i];
+        m_view->scene()->addItem(sw);
+    }
 }
 
 

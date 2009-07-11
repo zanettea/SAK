@@ -12,11 +12,11 @@ SakSubWidget::SakSubWidget(const Task& task, Task::SubTask subtask, bool editabl
     QColor bgColor = subtask.bgColor.isValid() ? subtask.bgColor : task.bgColor;
     QColor fgColor = subtask.fgColor.isValid() ? subtask.fgColor : task.fgColor;
 
-    m_palette.setColor(QPalette::Inactive, QPalette::Button, bgColor);
-    m_palette.setColor(QPalette::Active, QPalette::Button, fgColor);
+    m_palette.setColor(QPalette::Inactive, QPalette::Button, fgColor);
+    m_palette.setColor(QPalette::Active, QPalette::Button, bgColor);
 
-    m_palette.setColor(QPalette::Inactive, QPalette::ButtonText, fgColor);
-    m_palette.setColor(QPalette::Active, QPalette::ButtonText, bgColor);
+    m_palette.setColor(QPalette::Inactive, QPalette::ButtonText, bgColor);
+    m_palette.setColor(QPalette::Active, QPalette::ButtonText, fgColor);
 
     m_showingDetails=false;
 

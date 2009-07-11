@@ -469,20 +469,26 @@ void Sak::populateHitsList(const QList<HitElement>& hits, QTreeWidget* theHitsLi
         w->setData(1, Qt::UserRole, qVariantFromValue(hit));
         w->setText(2, hit.subtask);
         w->setText(3, QString("%1").arg(hit.duration));
-        if (o[i] != 0) {
-            w->setBackground(0,Qt::red);
-            w->setBackground(1,Qt::red);
-            w->setBackground(2,Qt::red);
-            w->setBackground(3,Qt::red);
-            w->setBackground(4,Qt::red);
-            w->setText(4,QString("%1").arg(o[i]));
-        }
         if (hit.task->title == "<away>") {
-            w->setForeground(0,Qt::gray);
-            w->setForeground(1,Qt::gray);
-            w->setForeground(2,Qt::gray);
-            w->setForeground(3,Qt::gray);
-            w->setForeground(4,Qt::gray);
+            for(int i=0; i<4; i++) {
+                w->setForeground(i,Qt::gray);
+            }
+        } else {
+            for(int i=0; i<4; i++) {
+                w->setBackground(i,hit.task->bgColor);
+                w->setForeground(i,hit.task->fgColor);
+            }
+#if MARK_OVERESTIMATIONS
+            if (o[i] != 0) {
+                w->setBackground(0,Qt::red);
+                w->setBackground(1,Qt::red);
+                w->setBackground(2,Qt::red);
+                w->setBackground(3,Qt::red);
+                w->setBackground(4,Qt::red);
+                w->setText(4,QString("%1").arg(o[i]));
+            }
+            w->setText(4,QString("%1").arg(o[i]));
+#endif
         }
         w->setIcon(1, hit.task->icon);
         if (hit.editable)

@@ -151,7 +151,7 @@ void SakWidget::keyPressEvent ( QKeyEvent * event ) {
         emit clicked(m_task.title);
     } else  if (event->key() == Qt::Key_Return && (event->modifiers() &  Qt::ShiftModifier) ) {
         event->accept();
-        emit clicked(m_task.title, "");
+        emit clicked("");
     } else if (event->key() == Qt::Key_Space) {
         event->accept();
         showDetails(!m_showingDetails);

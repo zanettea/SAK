@@ -58,16 +58,22 @@ protected slots:
     void addDefaultTask();
     void exportHits();
     void populateTasks();
+    // commit changes on current tasks for temporary previews
     void commitCurrentTask();
+    // permanentely save changes on tasks
     void saveTaskChanges();
+    // permanentely save changes on hits
     void saveHitChanges();
     void selectedTask();
     void doubleClickedTask(QTreeWidgetItem* i, int column);
     void selectColor();
     void grabKeyboard(); // delayed grab of keayboard
+    // popup task selection
     void popup();
-    void workingOnTask(const QString& taskname, const QString& subtask);
+    // popup subtask selection
     void popupSubtasks(const QString& taskname);
+    // save current selected hit (after popup)
+    void workingOnTask(const QString& taskname, const QString& subtask);
     void focusedSubTask();
     void clearView();
     void trayIconActivated(QSystemTrayIcon::ActivationReason);
@@ -91,6 +97,7 @@ private:
     QHash<QString, Task> m_editedTasks;
     QMultiMap<int, SakWidget*> m_widgets;
     QMultiMap<unsigned int, SakSubWidget*> m_subwidgets;
+    class QGraphicsEllipseItem* m_marker;
     QMap<int, SakWidget*>::iterator m_widgetsIterator;
     QMap<unsigned int, SakSubWidget*>::iterator m_subwidgetsIterator;
     unsigned int m_subWidgetRank;
