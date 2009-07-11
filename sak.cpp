@@ -1007,39 +1007,32 @@ void Sak::workingOnTask(const QString& taskName, const QString& subTask)
 
             QDateTime now = QDateTime::currentDateTime();
             QHash<QString, Task>::iterator itr = m_tasks.begin();
-            bool merged = false;
-            while( itr != m_tasks.end() ) {
-                Task& ot = *itr;
-                QHash<QString, QList< Task::Hit> >::iterator hitr = itr->hits.begin();
-                while(hitr != itr->hits.end()) {
-                    QList<Task::Hit>& otHits( *hitr );
-                    if ( otHits.count() ) {
-                        Task::Hit& lastHit(otHits.last());
-                        unsigned int realElapsed = now.toTime_t() - lastHit.timestamp.toTime_t();
-                        unsigned int lastdt = lastHit.duration;
-                        qint64 diff = (qint64)realElapsed - (quint64)((Task::hours(lastdt)+Task::hours(m_currentInterval))*3600/2); // seconds
-                        if (itr.key() == taskName && hitr.key() == subTask) {
-                            if (diff < 120) { // at most 2 minutes apart
-                                lastHit.timestamp = lastHit.timestamp.addSecs(-30*lastHit.duration);
-                                int secsToEnd = lastHit.timestamp.secsTo(now.addSecs(30*m_currentInterval));
-                                lastHit.timestamp = lastHit.timestamp.addSecs( secsToEnd/2.0 );
-                                lastHit.duration = (int)( round( secsToEnd / 60.0 ) );
-                                merged=true;
-                            }
-                        } else if ( diff < -59) {
-                            qWarning() << "SAK: overestimated time elapsed from last record (" << otHits.last().timestamp << ") of task " << ot.title << " and new record of task " << t.title << " (" << diff << " seconds)";
-                            unsigned int newdt = qMin(24.0, qMax(0.0,  Task::hours(lastdt) + (double)diff/3600.0))*60.0;
-                            qWarning() << "     -> adjusted duration of last record of task " << ot.title << " from " << lastdt << " to " << newdt;
-                            otHits.back().duration = newdt;
-                        }
+
+            QHash<QString, QList< Task::Hit> >::iterator hitr = t.hits.begin();
+            // merge last two hits of every subtask if they are close enough
+            while(hitr != t.hits.end()) {
+                QList<Task::Hit>& otHits( *hitr );
+                if (otHits.count() > 1) {
+                    Task::Hit& lastHit(otHits[otHits.size() - 1]);
+                    Task::Hit& beforeLastHit(otHits[otHits.size() - 2]);
+
+                    int diff = (lastHit.timestamp.toTime_t() - 30*lastHit.duration) - (beforeLastHit.timestamp.toTime_t() + 30*beforeLastHit.duration);
+                    if (diff < 120) { // at most 2 minutes apart
+                        beforeLastHit.timestamp = beforeLastHit.timestamp.addSecs(-30*beforeLastHit.duration);
+                        int secsToEnd = beforeLastHit.timestamp.secsTo(lastHit.timestamp.addSecs(30*m_currentInterval));
+                        beforeLastHit.timestamp = beforeLastHit.timestamp.addSecs( secsToEnd/2.0 );
+                        beforeLastHit.duration = (int)( round( secsToEnd / 60.0 ) );
+                        // remove the current very last hit
+                        otHits.pop_back();
                     }
-                    hitr++;
                 }
-                itr++;
+                hitr++;
             }
 
-            if (!merged)
-                t.hits[subTask] << Task::Hit(now, m_currentInterval);
+            // add hit to hit list
+            // NOTE: we do not try to merge the very last hit with previous ones because we want let
+            // the user being able to easily recover from a selection error
+            t.hits[subTask] << Task::Hit(now, m_currentInterval);
             m_incremental->writePiece(t.title, subTask, now, m_currentInterval);
             t.checkConsistency();
             QList<QTreeWidgetItem*> items = tasksTree->findItems (t.title, Qt::MatchExactly, 0);
@@ -1210,6 +1203,8 @@ void Sak::popup()
     // save changes first
     if (m_changedTask)
         saveTaskChanges();
+    if (m_changedHit)
+        saveHitChanges();
 
     if (m_subtaskView) {
         // remove subtasks
