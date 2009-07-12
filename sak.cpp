@@ -77,6 +77,7 @@ Sak::Sak(QObject* parent)
     , m_changedTask(false)
     , m_subtaskView(false)
 {
+    m_subtaskCompleter = 0;
     summaryList = hitsList = 0;
     init();
 
@@ -539,17 +540,11 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
                 popup();
                 return true;
             }
-        } else if (m_subtaskView && (ke->key() == Qt::Key_Up) ) {
+        } else if (m_subtaskView && ke->key() == Qt::Key_Up) {
             scrollSubTasks(-1);
             return true;
         } else if (m_subtaskView && ke->key() == Qt::Key_Down) {
             scrollSubTasks(+1);
-            return true;
-        } else if (!m_subtaskView && ke->key() == Qt::Key_Left) {
-            scrollTasks(-1);
-            return true;
-        } else if (!m_subtaskView && ke->key() == Qt::Key_Right) {
-            scrollTasks(+1);
             return true;
         } else { // forward events to current widget
             if (!m_subtaskView) {
@@ -558,9 +553,40 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
                 currentShowing->keyPressEvent(ke);
                 return true;
             } else {
+                // autoscroll on text completion!!!
                 if (m_subwidgetsIterator == m_subwidgets.end()) return false;
                 SakSubWidget* currentShowing = m_subwidgetsIterator.value();
                 currentShowing->keyPressEvent(ke);
+
+
+                if (m_subWidgetRank != 0) {
+                    QString completion(m_subtaskCompleter->completionPrefix());
+                    if (ke->text().size() ==  1) {
+                        if (ke->key() == Qt::Key_Backslash || ke->key() == Qt::Key_Backspace)
+                            completion.chop(1);
+                        else completion += ke->text();
+                        m_subtaskCompleter->setCompletionPrefix(completion);
+                    }
+
+                    QStringList list( ((QStringListModel*)m_subtaskCompleter->model())->stringList() );
+                    int newRank = 1 + ((QStringListModel*)m_subtaskCompleter->model())->stringList().indexOf(m_subtaskCompleter->currentIndex().row() >= 0 && completion.size() ? m_subtaskCompleter->currentCompletion() : completion);
+
+                    if (m_subWidgetRank != newRank) {
+                        scrollSubTasks(newRank - m_subWidgetRank);
+                        if (newRank == 0) {
+                            QLineEdit* editor = dynamic_cast<QLineEdit*>((*m_subwidgets.begin())->widget());
+                            if (editor) {
+                                editor->setText(completion);
+                            }
+                        }
+                    }
+                } else {
+                    QLineEdit* editor = dynamic_cast<QLineEdit*>((*m_subwidgets.begin())->widget());
+                    if (editor) {
+                        m_subtaskCompleter->setCompletionPrefix(editor->text());
+                    }
+                }
+
                 return true;
             }
         }
@@ -960,6 +986,7 @@ void Sak::clearView()
     killTimer(m_timeoutPopup);
     m_subtaskView=false;
     m_marker = 0;
+    delete m_subtaskCompleter; m_subtaskCompleter = 0;
 
     if (!m_view) return;
     QGraphicsScene* s = m_view->scene();
@@ -1379,12 +1406,25 @@ void Sak::popupSubtasks(const QString& _taskname) {
 
     const QList<SakSubWidget*>& values = m_subwidgets.values();
 
+    // create possible completion
+    QStringList subtaskSortedList;
+    foreach(SakSubWidget* sub, values) {
+        subtaskSortedList.push_back(sub->subtask().title);
+    }
+    m_subtaskCompleter = new QCompleter(subtaskSortedList);
+    m_subtaskCompleter->setCaseSensitivity(Qt::CaseInsensitive);
+
 //    QRect messageRect = Layouting((const QList<SakWidget*>&)values);
 
     m_subwidgetsIterator = m_subwidgets.begin();
     m_subWidgetRank = 0;
 
+    // the one with text
     SakSubWidget* tmpSw = new SakSubWidget(t, Task::SubTask(), true);
+    QCompleter* completer = new QCompleter(subtaskSortedList);
+    completer->setCaseSensitivity(Qt::CaseInsensitive);
+    completer->setCompletionMode(QCompleter::InlineCompletion);
+    ((QLineEdit*)tmpSw->widget())->setCompleter(completer);
     m_view->scene()->addItem(tmpSw);
     tmpSw->setGeometry(QRectF(0,0,w,h));
     connect (tmpSw, SIGNAL(clicked(const QString&, const QString&)), this, SLOT(workingOnTask(const QString&, const QString&)));

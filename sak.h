@@ -103,6 +103,7 @@ private:
     unsigned int m_subWidgetRank;
     QList<QString> m_taskSelectionHistory;
     QHash< QString, QList< QString > > m_subtaskSelectionHistory;
+    QCompleter* m_subtaskCompleter;
     unsigned int m_currentInterval;
 
     bool m_previewing;

@@ -22,6 +22,8 @@ public:
     ~SakSubWidget();
 public slots:
     void showDetails(bool show = true);
+    const Task& task () const {return m_task;}
+    const Task::SubTask& subtask() const {return m_subtask;}
 signals:
     void clicked(const QString& taskName, const QString& subtaskName);
     void focused();
