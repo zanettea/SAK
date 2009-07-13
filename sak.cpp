@@ -546,6 +546,12 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
         } else if (m_subtaskView && ke->key() == Qt::Key_Down) {
             scrollSubTasks(+1);
             return true;
+        } else if (!m_subtaskView && ke->key() == Qt::Key_Left) {
+            scrollTasks(-1);
+            return true;
+        } else if (!m_subtaskView && ke->key() == Qt::Key_Right) {
+            scrollTasks(+1);
+            return true;
         } else { // forward events to current widget
             if (!m_subtaskView) {
                 if (m_widgetsIterator == m_widgets.end()) return false;
@@ -558,29 +564,29 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
                 SakSubWidget* currentShowing = m_subwidgetsIterator.value();
                 currentShowing->keyPressEvent(ke);
 
-
-                if (m_subWidgetRank != 0) {
+                if (m_subWidgetRank != 0 && m_subtaskCompleter) {
                     QString completion(m_subtaskCompleter->completionPrefix());
                     if (ke->text().size() ==  1) {
                         if (ke->key() == Qt::Key_Backslash || ke->key() == Qt::Key_Backspace)
                             completion.chop(1);
                         else completion += ke->text();
                         m_subtaskCompleter->setCompletionPrefix(completion);
-                    }
 
-                    QStringList list( ((QStringListModel*)m_subtaskCompleter->model())->stringList() );
-                    int newRank = 1 + ((QStringListModel*)m_subtaskCompleter->model())->stringList().indexOf(m_subtaskCompleter->currentIndex().row() >= 0 && completion.size() ? m_subtaskCompleter->currentCompletion() : completion);
 
-                    if (m_subWidgetRank != newRank) {
-                        scrollSubTasks(newRank - m_subWidgetRank);
-                        if (newRank == 0) {
-                            QLineEdit* editor = dynamic_cast<QLineEdit*>((*m_subwidgets.begin())->widget());
-                            if (editor) {
-                                editor->setText(completion);
+                        QStringList list( ((QStringListModel*)m_subtaskCompleter->model())->stringList() );
+                        int newRank = 1 + ((QStringListModel*)m_subtaskCompleter->model())->stringList().indexOf(m_subtaskCompleter->currentIndex().row() >= 0 && completion.size() ? m_subtaskCompleter->currentCompletion() : completion);
+
+                        if (m_subWidgetRank != newRank) {
+                            scrollSubTasks(newRank - m_subWidgetRank);
+                            if (newRank == 0) {
+                                QLineEdit* editor = dynamic_cast<QLineEdit*>((*m_subwidgets.begin())->widget());
+                                if (editor) {
+                                    editor->setText(completion);
+                                }
                             }
                         }
                     }
-                } else {
+                } else if (m_subtaskCompleter) {
                     QLineEdit* editor = dynamic_cast<QLineEdit*>((*m_subwidgets.begin())->widget());
                     if (editor) {
                         m_subtaskCompleter->setCompletionPrefix(editor->text());
