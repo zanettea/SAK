@@ -1689,6 +1689,11 @@ void Sak::setupSettingsWidget()
     fgColorButton->setToolTip("Foreground color");
     fgColorButton->setSizePolicy(QSizePolicy(QSizePolicy::Preferred, QSizePolicy::MinimumExpanding));
 
+#ifdef Q_WS_WIN
+    // fix Windows XP "style"
+    bgColorButton->setStyle(new QWindowsStyle());
+    fgColorButton->setStyle(new QWindowsStyle());
+#endif
 
     colorsLayout->addWidget(bgColorButton);
     colorsLayout->addWidget(fgColorButton);
