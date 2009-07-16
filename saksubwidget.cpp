@@ -24,6 +24,10 @@ SakSubWidget::SakSubWidget(const Task& task, Task::SubTask subtask, bool editabl
     if (editable) {
         ((QLineEdit*)b)->setText(message);
         ((QLineEdit*)b)->setAlignment(Qt::AlignCenter);
+#ifdef Q_WS_WIN
+    } else { // !editable -> button: fix XP "style"
+	b->setStyle(new QWindowsStyle());
+#endif
     }
     setWidget(b);
     b->setPalette(m_palette);
