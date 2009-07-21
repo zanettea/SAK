@@ -146,6 +146,7 @@ void HitItem::hoverMoveEvent ( QGraphicsSceneHoverEvent * event )
 
 Timeline::Timeline(QWidget* parent) : QGraphicsView(parent)
 {
+    setRenderHint(QPainter::Antialiasing, true);
     setScene(new QGraphicsScene());
     scene()->setBackgroundBrush(Qt::gray);
     setFixedHeight(TLH+10);
@@ -268,7 +269,10 @@ void Timeline::setPeriod(const QDateTime& from, const QDateTime& to)
     m_bg->setAcceptHoverEvents(false);
     m_bg->setEnabled(false);
     m_bg->setAcceptedMouseButtons(Qt::NoButton);
+
+    QGraphicsSimpleTextItem * ti = new QGraphicsSimpleTextItem("text", m_bg, scene());
     scene()->addItem(m_bg);
+
 }
 
 void Timeline::selectionChanged()
