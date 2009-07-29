@@ -556,6 +556,9 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
         } else if (!m_subtaskView && ke->key() == Qt::Key_Right) {
             scrollTasks(+1);
             return true;
+	} else if (!m_subtaskView && ke->key() == Qt::Key_Escape) {
+	    clearView();
+	    return true;
 	} else { // forward events to current widget
             if (!m_subtaskView) {
                 if (m_widgetsIterator == m_widgets.end()) return false;
