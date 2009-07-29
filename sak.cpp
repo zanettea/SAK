@@ -1346,6 +1346,9 @@ void Sak::popup()
     m_view->show();
     m_view->raise();
     m_view->setFocus();
+#if defined(Q_WS_WIN)
+    SetForegroundWindow(m_view->winId());
+#endif
     qApp->alert(m_view, 5000);
 }
 
