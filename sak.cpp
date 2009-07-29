@@ -106,7 +106,11 @@ void Sak::init()
 {
     m_backupper = new Backupper;
     m_incremental = new Incremental;
+#ifdef USEGMAIL
     m_gmail = new GmailPyInterface;
+#else
+    m_gmail = NULL;
+#endif
 
     // load the data model
     QSettings settings(QSettings::IniFormat, QSettings::UserScope, "ZanzaSoft", "SAK");
@@ -552,7 +556,7 @@ bool Sak::eventFilter(QObject* obj, QEvent* e)
         } else if (!m_subtaskView && ke->key() == Qt::Key_Right) {
             scrollTasks(+1);
             return true;
-        } else { // forward events to current widget
+	} else { // forward events to current widget
             if (!m_subtaskView) {
                 if (m_widgetsIterator == m_widgets.end()) return false;
                 SakWidget* currentShowing = m_widgetsIterator.value();
@@ -1370,7 +1374,6 @@ void Sak::popupSubtasks(const QString& _taskname) {
     int w = 500;
     int h = 40;
 
-
     // hide tasks to show subtasks
     foreach(SakWidget* w, m_widgets.values()) {
         w->hide();
@@ -1578,12 +1581,14 @@ void Sak::setupSettingsWidget()
     dbMenu->addAction(openAction);
 //    dbMenu->addAction(saveAsDbAction);
     dbMenu->addAction(exportDbCsvAction);
+#ifdef USEGMAIL
     dbMenu->addAction(gmailLoginAction);
     dbMenu->addAction(saveToGmailAction);
     if (!m_gmail->isValid()) {
         gmailLoginAction->setEnabled(false);
         saveToGmailAction->setEnabled(false);
     }
+#endif
     QMenu* actionsMenu =  mainMenu->addMenu("Actions");
     actionsMenu->addAction(startAction);
     actionsMenu->addAction(stopAction);
@@ -1836,11 +1841,16 @@ void Sak::createActions()
     exportDbCsvAction = new QAction(tr("Export hits in CSV format"), m_settings);
     connect(exportDbCsvAction, SIGNAL(triggered()), this, SLOT(exportDbCsv()));
 
+#ifdef USEGMAIL
     saveToGmailAction = new QAction(tr("Store in your gmail account free space"), m_settings);
     connect(saveToGmailAction, SIGNAL(triggered()), this, SLOT(saveToGmail()));
 
     gmailLoginAction = new QAction(tr("Log in gmail"), m_settings);
     connect(gmailLoginAction, SIGNAL(triggered()), this, SLOT(logInGmail()));
+#else
+    saveToGmailAction = NULL;
+    gmailLoginAction = NULL;
+#endif
 
     openAction = new QAction(tr("Import a task from file"), m_settings);
     connect(openAction, SIGNAL(triggered()), this, SLOT(open()));
