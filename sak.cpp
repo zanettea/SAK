@@ -8,6 +8,7 @@
 #include <QCryptographicHash>
 #include <QSettings>
 #include <QGraphicsEllipseItem>
+#include <cassert>
 
 #include "sak.h"
 #include "sakwidget.h"
@@ -198,7 +199,7 @@ void Sak::init()
     m_view->setWindowTitle("SaK - Sistema Anti Kazzeggio");
 
     m_currentInterval = durationSpinBox->value();
-    m_currentInterval = qMax((unsigned int)1, qMin((unsigned int)1440, m_currentInterval));
+    m_currentInterval = qMax((int)1, qMin((int)1440, m_currentInterval));
     qDebug() << "SAK: pinging interval " <<  m_currentInterval << Task::hours(m_currentInterval) << " hours ";
 
     hitsTimeline->setPeriod(QDateTime(cal1->selectedDate()), QDateTime(cal2->selectedDate()));
@@ -207,7 +208,7 @@ void Sak::init()
 
 void Sak::start()
 {
-    m_currentInterval = qMax((unsigned int)1, m_currentInterval);
+    m_currentInterval = qMax((int)1, m_currentInterval);
     if (!m_timerId) {
         int msecs = (int)(Task::hours(m_currentInterval)*3600.0*1000.0 / 2);
         m_timerId = startTimer( msecs );
@@ -492,8 +493,8 @@ Sak::~Sak()
 }
 
 
-void layoutSubTasks( const QMap<unsigned int, SakSubWidget*> sortedWidgets, unsigned int currentRank) {
-    QMap<unsigned int, SakSubWidget*>::const_iterator itr = sortedWidgets.begin(), end = sortedWidgets.end();
+void layoutSubTasks( const QMap<int, SakSubWidget*> sortedWidgets, int currentRank) {
+    QMap<int, SakSubWidget*>::const_iterator itr = sortedWidgets.begin(), end = sortedWidgets.end();
     QRect r = QDesktopWidget().geometry();
     for(int i=0; itr != end; i++, itr++) {
         int h = (*itr)->size().height();
@@ -964,6 +965,7 @@ void Sak::timerEvent(QTimerEvent* e)
         } else {
             if (m_settings && m_settings->isVisible() && !m_settings->isActiveWindow()) {
                  trayIcon->showMessage("Delayed check point", "Delayed check point due to open settings. Close the setting window!", QSystemTrayIcon::Warning, -1);
+                 m_settings->close();
             }
             qDebug() << "SAK: wait 5 seconds";
             killTimer(m_timerId);
@@ -1053,6 +1055,12 @@ void Sak::workingOnTask(const QString& taskName, const QString& subTask)
                     if (diff < 120) { // at most 2 minutes apart
                         beforeLastHit.timestamp = beforeLastHit.timestamp.addSecs(-30*beforeLastHit.duration);
                         int secsToEnd = beforeLastHit.timestamp.secsTo(lastHit.timestamp.addSecs(30*m_currentInterval));
+                        if (secsToEnd > 24 * 3600 * 3600) {
+                            qWarning() << "TRAPPED ERROR IN SECS COUNT!!!!!!!!";
+                            qWarning() << "BEFORE LAST HIST WAS " << beforeLastHit.timestamp << beforeLastHit.duration;
+                            qWarning() << "LAST HIT WAS " << lastHit.timestamp << lastHit.duration;
+                            assert(secsToEnd < 24 * 3600 * 3600);
+                        }
                         beforeLastHit.timestamp = beforeLastHit.timestamp.addSecs( secsToEnd/2.0 );
                         beforeLastHit.duration = (int)( round( secsToEnd / 60.0 ) );
                         // remove the current very last hit
@@ -1526,7 +1534,7 @@ void Sak::focusedSubTask()
 {
     SakSubWidget* w = dynamic_cast<SakSubWidget*>(sender());
     if (w) {
-        QMap<unsigned int, SakSubWidget*>::iterator itr = m_subwidgets.begin(), end=m_subwidgets.end();
+        QMap<int, SakSubWidget*>::iterator itr = m_subwidgets.begin(), end=m_subwidgets.end();
         for(int i=0; itr != end; i++,itr++) {
             if (itr.value() == w) {
                 m_subwidgetsIterator = itr;

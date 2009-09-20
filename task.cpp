@@ -66,7 +66,7 @@ QXmlStreamWriter & operator<< ( QXmlStreamWriter & out, const Task & task )
 
 void parseHits(QXmlStreamReader & in, Task & task, const QString subtask)
 {
-    QMultiMap<unsigned int, Task::Hit> sortedHits;
+    QMultiMap<int, Task::Hit> sortedHits;
     while(!in.atEnd()) {
         QXmlStreamReader::TokenType token = in.readNext();
         if (token == QXmlStreamReader::StartElement) {
@@ -85,7 +85,7 @@ void parseHits(QXmlStreamReader & in, Task & task, const QString subtask)
     }
 
     // remove duplicates
-    QMultiMap<unsigned int, Task::Hit>::iterator itr =  sortedHits.begin();
+    QMultiMap<int, Task::Hit>::iterator itr =  sortedHits.begin();
     Task::Hit prev;
     while(itr != sortedHits.end()) {
         if (itr.value() == prev)

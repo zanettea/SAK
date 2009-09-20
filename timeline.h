@@ -8,15 +8,15 @@ class Task;
 class HitItem : public QObject,  public QGraphicsItem {
     Q_OBJECT;
 public:
-    HitItem(const Task* t, const QDateTime& timestamp, unsigned int duration, const QString& subtask, QGraphicsItem* parent = 0);
+    HitItem(const Task* t, const QDateTime& timestamp, int duration, const QString& subtask, QGraphicsItem* parent = 0);
     QRectF boundingRect() const { return m_rect; }
     void paint ( QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = 0 );
     const Task* task() const { return m_task; }
     void commitChanges();
     QDateTime timestamp() const { return m_t; }
     QDateTime newTimestamp() const { return m_newT; }
-    unsigned int duration() const { return m_d; }
-    unsigned int newDuration() const { return m_newD; }
+    int duration() const { return m_d; }
+    int newDuration() const { return m_newD; }
     QString subtask() const { return m_subtask; }
 protected:
     void mousePressEvent(QGraphicsSceneMouseEvent * event);
@@ -31,7 +31,7 @@ signals:
 private:
     const Task* m_task;
     QRectF m_rect;
-    unsigned int m_d, m_newD;
+    int m_d, m_newD;
     QDateTime m_t, m_newT;
     QString m_subtask;
     QPainterPath m_shape;

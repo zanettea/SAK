@@ -26,7 +26,7 @@ struct Task
             : timestamp(t)
             , duration(d) {}
         QDateTime timestamp;
-        unsigned int duration;
+        int duration;
         bool operator<(const Hit& o) const {
             return timestamp < o.timestamp;
         }
@@ -48,7 +48,7 @@ struct Task
     // also set totHours
     bool checkConsistency();
     // get hours from value
-    static double hours(unsigned int v) { return (double)v/60.0; }
+    static double hours(int v) { return (double)v/60.0; }
 };
 
 static inline bool operator == (const Task::Hit& h1, const Task::Hit& h2) {
@@ -61,9 +61,9 @@ struct HitElement
     Task* task;
     QString subtask;
     QDateTime timestamp;
-    unsigned int duration;
+    int duration;
     bool editable;
-    HitElement(Task* t = 0, const QString& subtask = QString(), const QDateTime& tt = QDateTime(), unsigned int d=0, bool edit=true)
+    HitElement(Task* t = 0, const QString& subtask = QString(), const QDateTime& tt = QDateTime(), int d=0, bool edit=true)
         : task(t)
         , subtask(subtask)
         , timestamp(tt)

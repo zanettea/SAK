@@ -410,7 +410,7 @@ void Sak::hitsSelectedInList(QTreeWidgetItem* current, QTreeWidgetItem* /*prev*/
 
 
         QPointF center (QDateTime::fromString(current->text(0), DATETIMEFORMAT).toTime_t() / 60.0, 0);
-        unsigned int duration = current->text(3).toUInt();
+        int duration = current->text(3).toUInt();
         QList<QGraphicsItem*>  items = hitsTimeline->scene()->items();
         for(int i=0; i<items.count(); i++) {
             HitItem* hitem = dynamic_cast<HitItem*>(items[i]);
@@ -615,7 +615,7 @@ void Sak::interactiveMergeHits()
             if (!w->isDisabled()) {
                 QString name(w->text(1));
                 QDateTime timestamp(QDateTime::fromString(w->text(0), DATETIMEFORMAT));
-                unsigned int duration (w->text(3).toUInt());
+                int duration (w->text(3).toUInt());
                 QHash<QString, Task>::iterator titr = m_tasks.find(name);
                 Q_ASSERT(titr != m_tasks.end());
                 (*titr).hits[w->text(2)] << Task::Hit(timestamp, duration);

@@ -96,15 +96,15 @@ private:
     QHash<QString, Task> m_tasks;
     QHash<QString, Task> m_editedTasks;
     QMultiMap<int, SakWidget*> m_widgets;
-    QMultiMap<unsigned int, SakSubWidget*> m_subwidgets;
+    QMultiMap<int, SakSubWidget*> m_subwidgets;
     class QGraphicsEllipseItem* m_marker;
     QMap<int, SakWidget*>::iterator m_widgetsIterator;
-    QMap<unsigned int, SakSubWidget*>::iterator m_subwidgetsIterator;
-    unsigned int m_subWidgetRank;
+    QMap<int, SakSubWidget*>::iterator m_subwidgetsIterator;
+    int m_subWidgetRank;
     QList<QString> m_taskSelectionHistory;
     QHash< QString, QList< QString > > m_subtaskSelectionHistory;
     QCompleter* m_subtaskCompleter;
-    unsigned int m_currentInterval;
+    int m_currentInterval;
 
     bool m_previewing;
     bool m_changedHit, m_changedTask;

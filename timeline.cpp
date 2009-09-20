@@ -5,7 +5,7 @@
 static const int TLH = 30;
 static const int TLH2 = 15;
 
-HitItem::HitItem(const Task* t, const QDateTime& timestamp, unsigned int duration, const QString& subtask, QGraphicsItem* parent)
+HitItem::HitItem(const Task* t, const QDateTime& timestamp, int duration, const QString& subtask, QGraphicsItem* parent)
     : QGraphicsItem(parent)
     , m_task(t)
     , m_d(duration)
