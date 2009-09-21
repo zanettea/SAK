@@ -32,15 +32,20 @@ SOURCES += main.cpp \
     backupper.cpp \
     timeline.cpp \
 
-contains(DEFINES, USELIBGMAIL) {
-    LIBS += -lpython2.5
-    HEADERS += gmailstorage/gmailpyinterface.h
-    SOURCES += gmailstorage/gmailpyinterface.cpp
-} else {
-    HEADERS += gmailstorage/mailsender.h   gmailstorage/gmailmyinterface.h
-    SOURCES += gmailstorage/mailsender.cpp   gmailstorage/gmailmyinterface.cpp
+!win32 {
+	DEFINES += USEGMAIL
 }
-    
+
+contains(DEFINES, USEGMAIL) {
+	contains(DEFINES, USELIBGMAIL) {
+	    LIBS += -lpython2.5
+	    HEADERS += gmailstorage/gmailpyinterface.h
+	    SOURCES += gmailstorage/gmailpyinterface.cpp
+	} else {
+	    HEADERS += gmailstorage/mailsender.h   gmailstorage/gmailmyinterface.h
+	    SOURCES += gmailstorage/mailsender.cpp   gmailstorage/gmailmyinterface.cpp
+	}
+}
 
 
 RESOURCES += sak.qrc
