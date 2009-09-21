@@ -101,6 +101,27 @@ Sak::Sak(QObject* parent)
     m_timerId = 0;
     m_autoSaveTimer = startTimer(1000 * 60 * 45); // every 45 minutes
     start();
+
+    // Need to go here, or after plasma reboot the icon will disappear
+    trayIconMenu = new QMenu(m_settings);
+    //trayIconMenu->addAction(minimizeAction);
+    //trayIconMenu->addAction(maximizeAction);
+    //trayIconMenu->addAction(restoreAction);
+    //trayIconMenu->addSeparator();
+    trayIconMenu->addAction(startAction);
+    trayIconMenu->addAction(stopAction);
+    trayIconMenu->addAction(flushAction);
+    trayIconMenu->addSeparator();
+    trayIconMenu->addAction(quitAction);
+    trayIcon = new QSystemTrayIcon(m_settings);
+    trayIcon->setContextMenu(trayIconMenu);
+    trayIcon->setIcon( QIcon(":/images/icon.png") );
+    m_settings->setWindowIcon( QIcon(":/images/icon.png") );
+    m_settings->setWindowTitle("SaK - Sistema Anti Kazzeggio");
+    trayIcon->setToolTip( tr("Sistema Anti Kazzeggio") );
+    trayIcon->show();
+    connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(trayIconActivated(QSystemTrayIcon::ActivationReason)));
+
 }
 
 void Sak::init()
@@ -1623,25 +1644,6 @@ void Sak::setupSettingsWidget()
     mainLayout->addLayout(messageLayout);
     tab2->setLayout(mainLayout);
 
-    trayIconMenu = new QMenu(m_settings);
-    //trayIconMenu->addAction(minimizeAction);
-    //trayIconMenu->addAction(maximizeAction);
-    //trayIconMenu->addAction(restoreAction);
-    //trayIconMenu->addSeparator();
-    trayIconMenu->addAction(startAction);
-    trayIconMenu->addAction(stopAction);
-    trayIconMenu->addAction(flushAction);
-    trayIconMenu->addSeparator();
-    trayIconMenu->addAction(quitAction);
-    trayIcon = new QSystemTrayIcon(m_settings);
-    trayIcon->setContextMenu(trayIconMenu);
-    trayIcon->setIcon( QIcon(":/images/icon.png") );
-    m_settings->setWindowIcon( QIcon(":/images/icon.png") );
-    m_settings->setWindowTitle("SaK - Sistema Anti Kazzeggio");
-    trayIcon->setToolTip( tr("Sistema Anti Kazzeggio") );
-    trayIcon->show();
-    connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(trayIconActivated(QSystemTrayIcon::ActivationReason)));
-    
     mainLayout = new QVBoxLayout;
     tab1->setLayout(mainLayout);
     // create tree view
