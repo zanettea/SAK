@@ -93,9 +93,6 @@ Sak::Sak(QObject* parent)
     if (m_tasks.count() <= 0)
         m_settings->show();
 
-   trayIcon->installEventFilter(this);
-
-
     m_previewing = false;
     m_changedHit = false;
     m_timerId = 0;
@@ -122,6 +119,7 @@ Sak::Sak(QObject* parent)
     trayIcon->show();
     connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(trayIconActivated(QSystemTrayIcon::ActivationReason)));
 
+   trayIcon->installEventFilter(this);
 }
 
 void Sak::init()
