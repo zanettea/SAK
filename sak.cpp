@@ -1472,7 +1472,7 @@ void Sak::popupSubtasks(const QString& _taskname) {
     connect (tmpSw, SIGNAL(clicked(const QString&, const QString&)), this, SLOT(workingOnTask(const QString&, const QString&)));
     connect (tmpSw, SIGNAL(focused()), this, SLOT(focusedSubTask()));
 
-    m_subwidgets.insertMulti(QDateTime::currentDateTime().addDays(999).toTime_t(), tmpSw);
+    m_subwidgets.insertMulti(-QDateTime::currentDateTime().addDays(999).toTime_t(), tmpSw);
 
     m_subWidgetRank += values.size() != 0;
 
