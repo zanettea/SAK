@@ -78,6 +78,8 @@ Sak::Sak(QObject* parent)
     , m_changedTask(false)
     , m_subtaskView(false)
 {
+    m_desktopRect = qApp->desktop()->rect();
+
     m_subtaskCompleter = 0;
     summaryList = hitsList = 0;
     init();
@@ -110,16 +112,17 @@ Sak::Sak(QObject* parent)
     trayIconMenu->addAction(flushAction);
     trayIconMenu->addSeparator();
     trayIconMenu->addAction(quitAction);
-    trayIcon = new QSystemTrayIcon(m_settings);
+    trayIcon = new QSystemTrayIcon(this);
     trayIcon->setContextMenu(trayIconMenu);
     trayIcon->setIcon( QIcon(":/images/icon.png") );
-    m_settings->setWindowIcon( QIcon(":/images/icon.png") );
-    m_settings->setWindowTitle("SaK - Sistema Anti Kazzeggio");
     trayIcon->setToolTip( tr("Sistema Anti Kazzeggio") );
     trayIcon->show();
     connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(trayIconActivated(QSystemTrayIcon::ActivationReason)));
+    trayIcon->installEventFilter(this);
 
-   trayIcon->installEventFilter(this);
+
+    m_settings->setWindowIcon( QIcon(":/images/icon.png") );
+    m_settings->setWindowTitle("SaK - Sistema Anti Kazzeggio");
 }
 
 void Sak::init()
@@ -207,7 +210,7 @@ void Sak::init()
     
     m_view = new GView;
     m_view->setScene(new QGraphicsScene);
-    m_view->scene()->setSceneRect(QDesktopWidget().geometry());    
+    m_view->scene()->setSceneRect(m_desktopRect);
 
     m_view->installEventFilter(this);
     m_view->setFrameStyle(QFrame::NoFrame);
@@ -516,9 +519,9 @@ Sak::~Sak()
 }
 
 
-void layoutSubTasks( const QMap<int, SakSubWidget*> sortedWidgets, int currentRank) {
+void Sak::layoutSubTasks( const QMap<int, SakSubWidget*> sortedWidgets, int currentRank) {
     QMap<int, SakSubWidget*>::const_iterator itr = sortedWidgets.begin(), end = sortedWidgets.end();
-    QRect r = QDesktopWidget().geometry();
+    QRect r = m_desktopRect;
     for(int i=0; itr != end; i++, itr++) {
         int h = (*itr)->size().height();
         int w = (*itr)->size().width();
@@ -1028,7 +1031,7 @@ void Sak::clearView()
     s->deleteLater();
     m_view->close();
     m_view->setScene(new QGraphicsScene);
-    m_view->scene()->setSceneRect(QDesktopWidget().geometry());
+    m_view->scene()->setSceneRect(m_desktopRect);
     m_previewing = false;
     m_view->releaseKeyboard();
 
@@ -1038,7 +1041,6 @@ void Sak::clearView()
     X11::XSetInputFocus((X11::Display*)QX11Info::display(), X11::CurrentFocusWindow, X11::CurrentRevertToReturn, CurrentTime);
     X11::XFlush((X11::Display*)QX11Info::display());
 #endif
-
 }
 
 void Sak::workingOnTask(const QString& taskName, const QString& subTask)
@@ -1114,7 +1116,6 @@ void Sak::workingOnTask(const QString& taskName, const QString& subTask)
             QMetaObject::invokeMethod(this, "selectedStartDate", Qt::QueuedConnection, Q_ARG(QDate, cal1->selectedDate()));
         }
     }
-
     clearView();
 }
 
@@ -1237,9 +1238,9 @@ void layoutInRect( QList<SakWidget*> sortedWidgets, QRect rect, char attractor)
     }
 }
 
-QRect Layouting( const QList<SakWidget*>& sortedWidgets)
+QRect Sak::Layouting( const QList<SakWidget*>& sortedWidgets)
 {
-    QRect r = QDesktopWidget().geometry();
+    QRect r = m_desktopRect;
     int height = (int)(0.75 * r.height());
     int width = r.width();
 
@@ -1327,6 +1328,7 @@ void Sak::popup()
         }
     }
 
+
     m_widgets.clear();
     foreach(const Task& t,  m_tasks.values()) {
         if (!t.active || t.title == QString() || t.title == "<away>") continue;
@@ -1349,6 +1351,7 @@ void Sak::popup()
         m_widgetsIterator.value()->showDetails(true);
     }
 
+
     const QList<SakWidget*>& values = m_widgets.values();
     QRect messageRect = Layouting((const QList<SakWidget*>&)values);
     foreach(SakWidget* w, values) {
@@ -1365,14 +1368,15 @@ void Sak::popup()
 
     // add the exit item
     SakExitItem* exitItem = new SakExitItem(QPixmap(":/images/exit.png"));
-    QRect r = QDesktopWidget().geometry();
+    QRect r = m_desktopRect;
     connect(exitItem, SIGNAL(exit()), this, SLOT(clearView()));
     exitItem->setPos(r.width() - exitItem->boundingRect().width(), 0);
     m_view->scene()->addItem(exitItem);
     exitItem->setZValue(1e8);
     exitItem->show();
 
-    m_view->setGeometry( QRect(qApp->desktop()->screenGeometry())/*.adjusted(200,200,-200,-200 )*/ );
+
+    m_view->setGeometry( QRect(m_desktopRect)/*.adjusted(200,200,-200,-200 )*/ );
     m_view->show();
     m_view->raise();
     m_view->setFocus();
@@ -1403,7 +1407,7 @@ void Sak::popupSubtasks(const QString& _taskname) {
 
     m_subtaskView = true;
     grabKeyboard();
-    QRect r = QDesktopWidget().geometry();
+    QRect r = m_desktopRect;
     int w = 500;
     int h = 40;
 

@@ -79,6 +79,7 @@ void SakWidget::setStatistics(double dailyWorked, double weeklyWorked, double mo
 #define ITERATIONS 5
 void SakWidget::timerEvent(QTimerEvent* e)
 {
+    if (!scene()) return;
     if (e->timerId() == m_flipTimer) {
         if (m_showingDetails ==  true) {
             QTransform t;

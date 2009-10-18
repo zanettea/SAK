@@ -105,6 +105,7 @@ private:
     QHash< QString, QList< QString > > m_subtaskSelectionHistory;
     QCompleter* m_subtaskCompleter;
     int m_currentInterval;
+    QRect m_desktopRect;
 
     bool m_previewing;
     bool m_changedHit, m_changedTask;
@@ -127,6 +128,9 @@ private:
 public:
     void setVisible(bool visible);
 private:
+    QRect Layouting( const QList<SakWidget*>& sortedWidgets);
+    void layoutSubTasks( const QMap<int, SakSubWidget*> sortedWidgets, int currentRank);
+
     QTreeWidget* newHitsList();
     QTreeWidget* newTaskSummaryList();
     void setupSettingsWidget();
