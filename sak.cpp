@@ -73,6 +73,7 @@ Sak::Sak(QObject* parent)
     : QObject(parent)
     , m_timerId(0)
     , m_timeoutPopup(0)
+    , m_stopped(false)
     , m_settings(0)
     , m_changedHit(false)
     , m_changedTask(false)
@@ -234,6 +235,7 @@ void Sak::init()
 
 void Sak::start()
 {
+    m_stopped=false;
     m_currentInterval = qMax((int)1, m_currentInterval);
     if (!m_timerId) {
         int msecs = (int)(Task::hours(m_currentInterval)*3600.0*1000.0 / 2);
@@ -249,13 +251,13 @@ void Sak::start()
 
 void Sak::stop()
 {
+    m_stopped=true;
     if (m_timerId) {
-        killTimer(m_timerId);
-        m_timerId = 0;
+        //killTimer(m_timerId);
+        //m_timerId = 0;
         stopAction->setEnabled(false);
         startAction->setEnabled(true);
     } else {
-
         stopAction->setEnabled(true);
         startAction->setEnabled(false);
     }
@@ -1268,6 +1270,10 @@ void Sak::grabKeyboard()
 
 void Sak::popup()
 {
+    if (m_stopped) {
+        trayIcon->showMessage("SAK popup disabled", "SAK triggered a new event but no popup will be shown", QSystemTrayIcon::Info, -1);
+    }
+
     // save changes first
     if (m_changedTask)
         saveTaskChanges();

@@ -91,6 +91,7 @@ protected slots:
     void interactiveMergeHits();
 private:
     int m_timerId, m_timeoutPopup, m_autoSaveTimer;
+    bool m_stopped;
     QDateTime m_nextTimerEvent;
     QMainWindow* m_settings;
     QHash<QString, Task> m_tasks;
