@@ -42,6 +42,7 @@ protected:
     bool hitsListEventFilter(QEvent* e);
 public slots:
     void start();
+    void pause();
     void stop();
     Task loadTaskFromFile(const QString& filePath);
     void flush();

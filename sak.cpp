@@ -235,32 +235,34 @@ void Sak::init()
 
 void Sak::start()
 {
-    m_stopped=false;
+    // ensure the timer is killed
+    if(m_timerId)
+        stop();
     m_currentInterval = qMax((int)1, m_currentInterval);
-    if (!m_timerId) {
-        int msecs = (int)(Task::hours(m_currentInterval)*3600.0*1000.0 / 2);
-        m_timerId = startTimer( msecs );
-        m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(msecs);
-        startAction->setEnabled(false);
-        stopAction->setEnabled(true);
-    } else {
-        startAction->setEnabled(true);
-        stopAction->setEnabled(false);
-    }
+    int msecs = (int)(Task::hours(m_currentInterval)*3600.0*1000.0 / 2);
+    m_timerId = startTimer( msecs );
+    m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(msecs);
+    startAction->setEnabled(false);
+    stopAction->setEnabled(true);
+    m_stopped=false;
 }
 
 void Sak::stop()
 {
-    m_stopped=true;
-    if (m_timerId) {
-        //killTimer(m_timerId);
-        //m_timerId = 0;
-        stopAction->setEnabled(false);
-        startAction->setEnabled(true);
-    } else {
-        stopAction->setEnabled(true);
-        startAction->setEnabled(false);
+    if(m_timerId) {
+        killTimer(m_timerId);
+        m_timerId = 0;
     }
+    stopAction->setEnabled(false);
+    startAction->setEnabled(true);
+    m_stopped=true;
+}
+
+void Sak::pause()
+{
+    m_stopped=true;
+    stopAction->setEnabled(false);
+    startAction->setEnabled(true);
 }
 
 Task Sak::loadTaskFromFile(const QString& filePath)
@@ -1271,7 +1273,8 @@ void Sak::grabKeyboard()
 void Sak::popup()
 {
     if (m_stopped) {
-        trayIcon->showMessage("SAK popup disabled", "SAK triggered a new event but no popup will be shown", QSystemTrayIcon::Info, -1);
+        trayIcon->showMessage("SAK popup disabled", "SAK triggered a new event but no popup will be shown", QSystemTrayIcon::Information, -1);
+        return;
     }
 
     // save changes first
@@ -1853,8 +1856,8 @@ void Sak::createActions()
     startAction = new QAction(tr("Start polling"), m_settings);
     connect(startAction, SIGNAL(triggered()), this, SLOT(start()));
 
-    stopAction = new QAction(tr("Stop polling"), m_settings);
-    connect(stopAction, SIGNAL(triggered()), this, SLOT(stop()));
+    stopAction = new QAction(tr("Pause polling"), m_settings);
+    connect(stopAction, SIGNAL(triggered()), this, SLOT(pause()));
 
     flushAction = new QAction(tr("&Flush data/settings to disk"), m_settings);
     connect(flushAction, SIGNAL(triggered()), this, SLOT(flush()));
