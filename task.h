@@ -77,6 +77,12 @@ struct HitElement
 Q_DECLARE_METATYPE(HitElement)
 
 
+inline QDebug & operator << (QDebug & out, Task::Hit& taskHit)
+{
+    out << taskHit.timestamp << ":" << taskHit.duration;
+    return out;
+}
+
 QDataStream & operator<< ( QDataStream & out, const Task & task );
 QDataStream & operator>> ( QDataStream & in, Task & task );
 

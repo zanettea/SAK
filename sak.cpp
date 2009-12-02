@@ -73,6 +73,7 @@ Sak::Sak(QObject* parent)
     : QObject(parent)
     , m_timerId(0)
     , m_timeoutPopup(0)
+    , m_getFocusTimer(0)
     , m_stopped(false)
     , m_settings(0)
     , m_changedHit(false)
@@ -82,7 +83,7 @@ Sak::Sak(QObject* parent)
     m_desktopRect = qApp->desktop()->rect();
 
     m_subtaskCompleter = 0;
-    summaryList = hitsList = 0;
+    summaryList = hitsList = 0; trayIcon=0;
     init();
 
     if (QCoreApplication::arguments().contains("--clear")) {
@@ -1017,6 +1018,8 @@ void Sak::timerEvent(QTimerEvent* e)
         }
     } else if (e->timerId() == m_autoSaveTimer) {
         flush();
+    } else if (e->timerId() == m_getFocusTimer) {
+        grabKeyboard();
     } else {
         qDebug() << "unknown timer event";
     }
@@ -1032,6 +1035,8 @@ void Sak::clearView()
     if (!m_view) return;
     QGraphicsScene* s = m_view->scene();
     QList<QGraphicsItem*> items = m_view->items();
+    m_widgets.clear();
+    m_widgetsIterator = m_widgets.end();
     s->deleteLater();
     m_view->close();
     m_view->setScene(new QGraphicsScene);
@@ -1039,6 +1044,7 @@ void Sak::clearView()
     m_previewing = false;
     m_view->releaseKeyboard();
 
+    killTimer(m_getFocusTimer);
 #if defined(Q_WS_X11)
     // restore focus to previous application
     grabbed=false;
@@ -1083,8 +1089,17 @@ void Sak::workingOnTask(const QString& taskName, const QString& subTask)
                     Task::Hit& lastHit(otHits[otHits.size() - 1]);
                     Task::Hit& beforeLastHit(otHits[otHits.size() - 2]);
 
+                    // the list might be not sorted (eg. after startup merge)
+                    // so give up merge of last two (unsorted) hits
+                    if (lastHit.timestamp < beforeLastHit.timestamp) { hitr++; continue; }
+
+                    qDebug() << "Task: " << t.title << " : " << hitr.key();
+                    qDebug() << "   Last hit: " << lastHit;
+                    qDebug() << "   Before last hit: " << beforeLastHit;
+
                     int diff = (lastHit.timestamp.toTime_t() - 30*lastHit.duration) - (beforeLastHit.timestamp.toTime_t() + 30*beforeLastHit.duration);
-                    if (diff < 120) { // at most 2 minutes apart
+                    qDebug() << "     diff: " << diff;
+                    if (diff < 120 && diff > -60) { // at most 2 minutes apart and 1 overlapped
                         beforeLastHit.timestamp = beforeLastHit.timestamp.addSecs(-30*beforeLastHit.duration);
                         int secsToEnd = beforeLastHit.timestamp.secsTo(lastHit.timestamp.addSecs(30*m_currentInterval));
                         if (secsToEnd > 24 * 3600 * 3600) {
@@ -1118,6 +1133,7 @@ void Sak::workingOnTask(const QString& taskName, const QString& subTask)
             // update statistics !!!!
             m_editedTasks = m_tasks;
             QMetaObject::invokeMethod(this, "selectedStartDate", Qt::QueuedConnection, Q_ARG(QDate, cal1->selectedDate()));
+            flush();
         }
     }
     clearView();
@@ -1264,8 +1280,10 @@ void Sak::grabKeyboard()
         XGetInputFocus((X11::Display*)QX11Info::display(), &X11::CurrentFocusWindow, &X11::CurrentRevertToReturn);
         grabbed=true;
     }
-    X11::XSetInputFocus((X11::Display*)QX11Info::display(), QX11Info::appRootWindow(QX11Info::appScreen()),  RevertToParent, CurrentTime);
-    X11::XFlush((X11::Display*)QX11Info::display());
+    if (X11::CurrentFocusWindow != QX11Info::appRootWindow(QX11Info::appScreen()) ) {
+        X11::XSetInputFocus((X11::Display*)QX11Info::display(), QX11Info::appRootWindow(QX11Info::appScreen()),  RevertToParent, CurrentTime);
+        X11::XFlush((X11::Display*)QX11Info::display());
+    }
 #endif
     m_view->grabKeyboard();
 }
@@ -1392,6 +1410,7 @@ void Sak::popup()
 #if defined(Q_WS_WIN)
     SetForegroundWindow(m_view->winId());
 #endif
+    m_getFocusTimer = startTimer( 500 );
     qApp->alert(m_view, 5000);
 }
 

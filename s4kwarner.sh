@@ -4,14 +4,15 @@ export DISPLAY=:0
 
 while((1)); do
 
-    pgrep X > /dev/null
+    xhost +
+    /usr/bin/pgrep X > /dev/null
     if [ $? == 0 ] ; then
-        pgrep sak > /dev/null
+        /usr/bin/pgrep sak > /dev/null
         if [ $? == 1 ]; then
-            xmessage -buttons ok,run:17 -c "SAK not running!";
+            /usr/bin/xmessage -buttons ok,run:17 -c "SAK not running!";
             if [ $? == 17 ]; then
-                xmessage -c "STARTING SAK!!!";
-                start-stop-daemon --start /root/progetti/Sak/sak
+                /usr/bin/xmessage -c "STARTING SAK!!!";
+                start-stop-daemon --start /root/progetti/Sak/sak.sh
             fi
         fi
     fi

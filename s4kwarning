@@ -5,7 +5,7 @@
 
 start() {
     ebegin "Starting sak warning"
-    start-stop-daemon -b --start -x /etc/init.d/s4kwarner.sh  -- 1>/dev/null
+    start-stop-daemon -u root -b --start -x /etc/init.d/s4kwarner.sh  -- 1>/dev/null
     eend $? "Failed to start sak warning"
 }
 
