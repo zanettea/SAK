@@ -1009,12 +1009,20 @@ void Sak::timerEvent(QTimerEvent* e)
     } else if (e->timerId() == m_timeoutPopup) {
         // ensure the timer is resetted
         killTimer(m_timeoutPopup);
+        killTimer(m_timerId);
 
         if (!m_subtaskView) {
             // if not selecting subtasks clear everything and signal away
             workingOnTask("<away>","");
             trayIcon->showMessage("New away events", "You have missed a check point. Fix it in the detailed hit list.", QSystemTrayIcon::Information,  999999);
             clearView();
+
+            // restart normal timer
+            int msecs = (int)(Task::hours(m_currentInterval)*3600.0*1000.0);
+            m_timerId = startTimer(msecs);
+        } else { // wait 5 seconds
+            m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(5000);
+            m_timerId = startTimer(5000);
         }
     } else if (e->timerId() == m_autoSaveTimer) {
         flush();
@@ -1306,8 +1314,9 @@ void Sak::popup()
         foreach(SakSubWidget* w, m_subwidgets.values()) {
             w->scene()->removeItem(w);
             delete w;
-            m_subwidgets.clear();
         }
+        m_subwidgets.clear();
+
         m_marker->scene()->removeItem(m_marker);
         delete m_marker;
 
