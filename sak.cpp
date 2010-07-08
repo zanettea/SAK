@@ -251,8 +251,7 @@ void Sak::start()
 void Sak::stop()
 {
     if(m_timerId) {
-        killTimer(m_timerId);
-        m_timerId = 0;
+        killTimer(m_timerId); m_timerId=-1;
     }
     stopAction->setEnabled(false);
     startAction->setEnabled(true);
@@ -519,7 +518,7 @@ void Sak::destroy()
 
 Sak::~Sak()
 {
-    killTimer(m_autoSaveTimer);
+    killTimer(m_autoSaveTimer); m_autoSaveTimer=-1;
     destroy();
 }
 
@@ -989,12 +988,11 @@ void Sak::timerEvent(QTimerEvent* e)
         if (!m_view->isVisible() && !m_settings->isVisible() && m_tasks.count() > 0) {
             popup();
             // close timer
-            killTimer(m_timeoutPopup);
-            m_timeoutPopup = startTimer((int)(qMax( 30000.0, Task::hours(m_currentInterval)*3600.0*1000.0/10.0))); // 5 secmin
+            killTimer(m_timerId); m_timerId=-1;
+            killTimer(m_timeoutPopup); m_timeoutPopup=-1;
+            int msecs = (int)(qMax( 30000.0, Task::hours(m_currentInterval)*3600.0*1000.0/10.0));
+            m_timeoutPopup = startTimer(msecs);
             // restart timer
-            killTimer(m_timerId);
-            int msecs = (int)(Task::hours(m_currentInterval)*3600.0*1000.0);
-            m_timerId = startTimer(msecs);
             m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(msecs);
         } else {
             if (m_settings && m_settings->isVisible() && !m_settings->isActiveWindow()) {
@@ -1002,14 +1000,14 @@ void Sak::timerEvent(QTimerEvent* e)
                  m_settings->close();
             }
             qDebug() << "SAK: wait 5 seconds";
-            killTimer(m_timerId);
+            killTimer(m_timerId); m_timerId=-1;
             m_timerId = startTimer(5000);
             m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(5000);
         }
     } else if (e->timerId() == m_timeoutPopup) {
         // ensure the timer is resetted
-        killTimer(m_timeoutPopup);
-        killTimer(m_timerId);
+        killTimer(m_timeoutPopup); m_timeoutPopup=-1;
+        killTimer(m_timerId); m_timerId = -1;
 
         if (!m_subtaskView) {
             // if not selecting subtasks clear everything and signal away
@@ -1017,12 +1015,9 @@ void Sak::timerEvent(QTimerEvent* e)
             trayIcon->showMessage("New away events", "You have missed a check point. Fix it in the detailed hit list.", QSystemTrayIcon::Information,  999999);
             clearView();
 
-            // restart normal timer
-            int msecs = (int)(Task::hours(m_currentInterval)*3600.0*1000.0);
-            m_timerId = startTimer(msecs);
         } else { // wait 5 seconds
             m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(5000);
-            m_timerId = startTimer(5000);
+            m_timeoutPopup =   startTimer(5000);
         }
     } else if (e->timerId() == m_autoSaveTimer) {
         flush();
@@ -1035,10 +1030,28 @@ void Sak::timerEvent(QTimerEvent* e)
 
 void Sak::clearView()
 {
-    killTimer(m_timeoutPopup);
+    killTimer(m_timeoutPopup); m_timeoutPopup=-1;
     m_subtaskView=false;
     m_marker = 0;
     delete m_subtaskCompleter; m_subtaskCompleter = 0;
+
+    if (m_view)
+        m_view->releaseKeyboard();
+    killTimer(m_getFocusTimer); m_getFocusTimer=-1;
+#if defined(Q_WS_X11)
+    // restore focus to previous application
+    grabbed=false;
+    X11::XSetInputFocus((X11::Display*)QX11Info::display(), X11::CurrentFocusWindow, X11::CurrentRevertToReturn, CurrentTime);
+    X11::XFlush((X11::Display*)QX11Info::display());
+#endif
+
+    // restart normal timer
+    if (!m_previewing) {
+        killTimer(m_timerId); m_timerId=-1;
+        int msecs = (int)(Task::hours(m_currentInterval)*3600.0*1000.0);
+        m_timerId = startTimer(msecs);
+        m_nextTimerEvent = QDateTime::currentDateTime().addMSecs(msecs);
+    }
 
     if (!m_view) return;
     QGraphicsScene* s = m_view->scene();
@@ -1050,15 +1063,6 @@ void Sak::clearView()
     m_view->setScene(new QGraphicsScene);
     m_view->scene()->setSceneRect(m_desktopRect);
     m_previewing = false;
-    m_view->releaseKeyboard();
-
-    killTimer(m_getFocusTimer);
-#if defined(Q_WS_X11)
-    // restore focus to previous application
-    grabbed=false;
-    X11::XSetInputFocus((X11::Display*)QX11Info::display(), X11::CurrentFocusWindow, X11::CurrentRevertToReturn, CurrentTime);
-    X11::XFlush((X11::Display*)QX11Info::display());
-#endif
 }
 
 void Sak::workingOnTask(const QString& taskName, const QString& subTask)
@@ -1425,8 +1429,7 @@ void Sak::popup()
 
 
 void Sak::popupSubtasks(const QString& _taskname) {
-
-    killTimer(m_timeoutPopup);
+    killTimer(m_timeoutPopup); m_timeoutPopup=-1;
 
     QString taskname = _taskname;
     if (taskname.isEmpty()) {
