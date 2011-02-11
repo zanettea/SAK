@@ -20,14 +20,20 @@ SakSubWidget::SakSubWidget(const Task& task, Task::SubTask subtask, bool editabl
 
     m_showingDetails=false;
 
-    QWidget* b = editable ? (QWidget*)new QLineEdit(subtask.title) : (QWidget*)new QPushButton(subtask.title);
+    QWidget* b = 0;
     if (editable) {
-        ((QLineEdit*)b)->setText(message);
-        ((QLineEdit*)b)->setAlignment(Qt::AlignCenter);
+        QLineEdit* l = new QLineEdit(subtask.title);
+        l->setValidator(new QRegExpValidator(QRegExp("[\\w\\s]*"),this));
+        l->setText(message);
+        l->setAlignment(Qt::AlignCenter);
+        b=l;
+    }  else {
+        b = new QPushButton(subtask.title);
 #ifdef Q_WS_WIN
-    } else { // !editable -> button: fix XP "style"
-	b->setStyle(new QWindowsStyle());
+        b->setStyle(new QWindowsStyle());
 #endif
+    }
+    if (editable) {
     }
     setWidget(b);
     b->setPalette(m_palette);
@@ -79,10 +85,10 @@ void SakSubWidget::keyPressEvent ( QKeyEvent * event ) {
     if (event->key() == Qt::Key_Return &&  ( (event->modifiers() &  Qt::ControlModifier) || (event->modifiers() &  Qt::ShiftModifier)) ) {
         event->accept();
         emit clicked(m_task.title, getMeaningfulText());
-    } else if (!m_editable && event->key() == Qt::Key_Space) {
+    } /*else if (!m_editable && event->key() == Qt::Key_Space) {
         event->accept();
         showDetails(!m_showingDetails);
-    } else QGraphicsProxyWidget::keyPressEvent(event);
+    } */ else QGraphicsProxyWidget::keyPressEvent(event);
 }
 
 

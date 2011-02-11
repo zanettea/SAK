@@ -1718,6 +1718,7 @@ void Sak::setupSettingsWidget()
     taskTitleEditor = new QLineEdit;
     taskTitleEditor->setFixedHeight(20);
     taskTitleEditor->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    taskTitleEditor->setValidator(new QRegExpValidator(QRegExp("[\\w]*"), this));
     connect(taskTitleEditor, SIGNAL(editingFinished()), this, SLOT(commitCurrentTask()));
 
     taskPixmapViewer = new PixmapViewer;

@@ -249,7 +249,9 @@ QMap<double,QPair<Task*, QString> > Sak::createSummaryList(const QList<HitElemen
 {
     QHash<QPair<Task*, QString>, double> summaryMap;
     foreach(const HitElement& hit, hits) {
-        summaryMap[QPair<Task*, QString>(hit.task, hit.subtask)] += Task::hours(hit.duration);
+        if (!hit.subtask.isEmpty())  {
+            summaryMap[QPair<Task*, QString>(hit.task, hit.subtask)] += Task::hours(hit.duration);
+        }
         summaryMap[QPair<Task*, QString>(hit.task, "")] += Task::hours(hit.duration);
     }
     QMap<double, QPair<Task*, QString> > summaryOrderedMap;
@@ -272,6 +274,14 @@ void Sak::saveHitChanges()
         m_changedHit=false;
         selectedStartDate(QDate());
         populateTasks();
+        // add subtasks, if missing
+        {
+            QHash<QString, Task>::iterator itr = m_tasks.begin();
+            while(itr != m_tasks.end()) {
+                itr->updateSubTasks();
+                itr++;
+            }
+        }
     }
 }
 
